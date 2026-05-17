@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="theme-color" content="#0f2547"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Sankat Mochan"/>
+  <title>Sankat Mochan Finance</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23cc0000'/><text y='.9em' font-size='80' x='10' fill='%23FFD700'>ॐ</text></svg>"/>
+  <link rel="manifest" href="manifest.json?v=3"/>
+  <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi&family=Playfair+Display:wght@700&family=Lato:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{--navy:#0f2547;--navy2:#1a3a6b;--gold:#ff9900;--gold2:#ffb732;--bg:#f0f4f8;--white:#fff;--text:#0f2547;--muted:#64748b;--border:#e2e8f0;--danger:#ef4444;--success:#22c55e;--warning:#f59e0b;--purple:#7c3aed;}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Lato',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .hindi{font-family:'Tiro Devanagari Hindi','Lato',sans-serif}
+    #splash{position:fixed;inset:0;background:linear-gradient(160deg,#0f2547,#071228);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:9999;transition:opacity .5s}
+    .sp-icon{width:88px;height:88px;border-radius:22px;background:linear-gradient(145deg,#1a3a6b,#071228);display:flex;align-items:center;justify-content:center;box-shadow:0 16px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1),0 0 0 1px rgba(200,170,90,.2)}
+    .sp-title{font-family:'Playfair Display',serif;font-size:28px;color:#f0f4f8}.sp-title span{color:var(--gold)}
+    .sp-hindi{font-family:'Tiro Devanagari Hindi',serif;font-size:13px;color:rgba(200,170,90,.6);letter-spacing:1px}
+    .dots{display:flex;gap:6px;margin-top:6px}
+    .dot{width:7px;height:7px;border-radius:50%;background:rgba(200,170,90,.35);animation:blink 1.4s infinite}
+    .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+    @keyframes blink{0%,80%,100%{opacity:.3;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
+    #auth-screen{display:none;min-height:100vh;background:linear-gradient(160deg,#0f2547,#071228);align-items:center;justify-content:center;padding:20px}
+    .auth-card{background:white;border-radius:24px;padding:32px 24px;width:100%;max-width:400px;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+    .auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:24px}
+    .auth-logo-icon{width:42px;height:42px;border-radius:10px;background:transparent;display:flex;align-items:center;justify-content:center}
+    .auth-logo-text{font-family:'Playfair Display',serif;font-size:20px;color:var(--navy)}.auth-logo-text span{color:var(--gold)}
+    .auth-title{font-size:18px;font-weight:700;color:var(--navy)}.auth-sub{font-size:12px;color:var(--muted);margin:4px 0 20px}
+    .field{margin-bottom:14px}
+    .field label{display:block;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-bottom:5px;text-transform:uppercase}
+    .field input,.field select,.field textarea{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:'Lato',sans-serif;color:var(--text);background:#f8fafc;outline:none;transition:border .2s}
+    .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--navy2);background:white}
+    .field textarea{resize:vertical;min-height:70px}
+    .btn-primary{width:100%;padding:13px;background:var(--navy);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif;transition:background .2s}
+    .btn-primary:hover{background:var(--navy2)}
+    .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+    .auth-switch{text-align:center;margin-top:14px;font-size:12px;color:var(--muted)}
+    .auth-switch a{color:var(--navy2);font-weight:700;cursor:pointer}
+    .err-msg{background:#fef2f2;border:1px solid #fecaca;color:var(--danger);border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:14px;display:none}
+    .success-msg{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:14px;display:none}
+    #app{display:none;flex-direction:column;min-height:100vh}
+    .topbar{background:var(--navy);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(15,37,71,.3)}
+    .topbar-logo{font-family:'Playfair Display',serif;font-size:18px;color:white}.topbar-logo span{color:var(--gold)}
+    .topbar-right{display:flex;align-items:center;gap:6px}
+    .user-badge{background:rgba(255,255,255,.1);border-radius:20px;padding:4px 10px;font-size:11px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:5px}
+    .role-pill{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 6px;border-radius:8px}
+    .role-admin{background:var(--gold);color:var(--navy)}.role-employee{background:rgba(255,255,255,.2);color:white}
+    .logout-btn{background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:8px;padding:5px 8px;font-size:11px;cursor:pointer;font-family:'Lato',sans-serif}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid var(--border);display:flex;z-index:100;box-shadow:0 -4px 16px rgba(15,37,71,.08)}
+    .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 4px 14px;cursor:pointer;transition:color .2s;color:var(--muted);font-size:10px;font-weight:600;gap:3px;border:none;background:none;font-family:'Lato',sans-serif}
+    .nav-item.active{color:var(--navy)}.nav-item .nav-icon{font-size:20px}
+    .content{flex:1;padding:16px;padding-bottom:80px;max-width:700px;margin:0 auto;width:100%}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+    .stat-card{background:white;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,37,71,.07)}
+    .stat-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:3px}
+    .stat-label .hindi-label{font-family:'Tiro Devanagari Hindi',sans-serif;font-size:10px;display:block;font-weight:400;letter-spacing:0}
+    .stat-val{font-size:22px;font-weight:700;color:var(--navy);font-family:'Playfair Display',serif}
+    .stat-val.green{color:var(--success)}.stat-val.gold{color:var(--gold)}.stat-val.purple{color:var(--purple)}
+    .chart-card{background:white;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(15,37,71,.07);margin-bottom:14px}
+    .chart-title{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:12px}
+    .section-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .section-title{font-size:15px;font-weight:700;color:var(--navy)}
+    .section-title .hindi{font-size:12px;color:var(--muted);font-weight:400;display:block}
+    .btn-add{background:var(--navy);color:white;border:none;border-radius:10px;padding:9px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif}
+    .search-bar{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font-size:13px;font-family:'Lato',sans-serif;background:white;color:var(--text);outline:none;margin-bottom:12px}
+    .client-card{background:white;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .15s;margin-bottom:10px}
+    .client-card:active{transform:scale(.98)}
+    .client-avatar{width:46px;height:46px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--navy2),var(--navy));display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);position:relative}
+    .avatar-img{width:46px;height:46px;border-radius:50%;object-fit:cover;position:absolute;inset:0}
+    .client-info{flex:1;min-width:0}
+    .client-name{font-weight:700;font-size:14px;color:var(--navy)}
+    .client-meta{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .client-right{text-align:right;flex-shrink:0}
+    .client-balance{font-weight:700;font-size:14px}
+    .bal-pos{color:var(--success)}.bal-neg{color:var(--danger)}.bal-zero{color:var(--muted)}
+    .status-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:8px;text-transform:uppercase;letter-spacing:.5px;display:inline-block;margin-top:3px}
+    .status-active{background:#dcfce7;color:#166534}.status-inactive{background:#f1f5f9;color:var(--muted)}.status-vip{background:#fef9c3;color:#854d0e}
+    .empty{text-align:center;padding:50px 20px;color:var(--muted)}
+    .empty-icon{font-size:44px;opacity:.3}
+    .modal-overlay{position:fixed;inset:0;background:rgba(15,37,71,.5);display:none;align-items:flex-end;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+    .modal-overlay.open{display:flex}
+    .modal{background:white;border-radius:24px 24px 0 0;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;padding:20px 18px 40px;animation:slideUp .3s ease}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px}
+    .modal-title{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px}
+    .form-section{background:#f8fafc;border-radius:12px;padding:14px;margin-bottom:12px}
+    .form-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin-bottom:12px}
+    .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .modal-actions{display:flex;gap:8px;margin-top:16px}
+    .btn-secondary{flex:1;padding:12px;border:1.5px solid var(--border);background:white;color:var(--muted);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif}
+    .btn-danger{padding:12px 16px;border:none;background:#fef2f2;color:var(--danger);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Lato',sans-serif}
+    .photo-upload{display:flex;align-items:center;gap:14px;margin-bottom:4px}
+    .photo-preview{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--navy2),var(--navy));display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--gold);flex-shrink:0;overflow:hidden;position:relative}
+    .photo-preview img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+    .photo-btn{background:#f0f4f8;border:1.5px dashed var(--border);border-radius:10px;padding:9px 14px;font-size:12px;font-weight:600;color:var(--navy2);cursor:pointer;font-family:'Lato',sans-serif}
+    .doc-upload-box{border:2px dashed var(--border);border-radius:10px;padding:12px;text-align:center;cursor:pointer;margin-top:8px}
+    .doc-upload-box:hover{border-color:var(--navy2);background:#f0f4f8}
+    .doc-preview{width:100%;height:100px;object-fit:cover;border-radius:8px;margin-top:6px}
+    .kyc-approved{background:#dcfce7;border:1px solid #bbf7d0;border-radius:8px;padding:8px 12px;font-size:12px;color:#166534;font-weight:700;display:flex;align-items:center;gap:6px;margin-top:8px}
+    .detail-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+    .detail-avatar-lg{width:70px;height:70px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--navy2),var(--navy));display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:26px;color:var(--gold);overflow:hidden;position:relative}
+    .detail-avatar-lg img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%}
+    .big-balance{text-align:center;padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:14px}
+    .big-balance .label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px}
+    .big-balance .amount{font-family:'Playfair Display',serif;font-size:36px;font-weight:700}
+    .detail-section{margin-bottom:14px}
+    .detail-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);margin-bottom:8px}
+    .detail-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+    .detail-row:last-child{border-bottom:none}
+    .detail-lbl{color:var(--muted)}.detail-val{font-weight:600;color:var(--navy);text-align:right;max-width:60%}
+    .payment-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9}
+    .payment-item:last-child{border-bottom:none}
+    .pay-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .pay-in{background:#dcfce7}.pay-out{background:#fef2f2}
+    .pay-info{flex:1}.pay-desc{font-size:13px;font-weight:600;color:var(--navy)}.pay-date{font-size:11px;color:var(--muted)}
+    .pay-amount{font-weight:700;font-size:14px}
+    .pay-add-btn{width:100%;padding:11px;background:#f0f4f8;border:1.5px dashed var(--border);border-radius:10px;font-size:13px;font-weight:600;color:var(--navy2);cursor:pointer;font-family:'Lato',sans-serif;margin-top:10px}
+    .invoice-item{background:white;border-radius:12px;padding:12px 14px;box-shadow:0 1px 6px rgba(15,37,71,.07);margin-bottom:8px}
+    .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .inv-no{font-size:12px;font-weight:700;color:var(--navy)}.inv-date{font-size:11px;color:var(--muted)}
+    .inv-footer{display:flex;justify-content:space-between;align-items:center}
+    .inv-amount{font-weight:700;font-size:15px;color:var(--navy);font-family:'Playfair Display',serif}
+    .inv-status{font-size:9px;font-weight:700;padding:3px 8px;border-radius:8px;text-transform:uppercase}
+    .inv-paid{background:#dcfce7;color:#166534}.inv-pending{background:#fef9c3;color:#854d0e}.inv-overdue{background:#fef2f2;color:#991b1b}
+    .tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+    .tab{padding:8px 14px;border:1.5px solid var(--border);background:white;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);font-family:'Lato',sans-serif;white-space:nowrap;transition:all .2s}
+    .tab.active{background:var(--navy);color:white;border-color:var(--navy)}
+    .approve-card{background:white;border-radius:14px;padding:14px 16px;box-shadow:0 2px 8px rgba(15,37,71,.07);margin-bottom:10px;border-left:4px solid var(--warning)}
+    #toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:white;padding:13px 24px;border-radius:30px;font-size:13px;font-weight:700;box-shadow:0 8px 32px rgba(15,37,71,.4);transition:transform .4s ease;z-index:9999;max-width:90vw;text-align:center;white-space:normal;line-height:1.4}
+    #toast.show{transform:translateX(-50%) translateY(0)}
+    #toast.success{background:#16a34a}#toast.error{background:var(--danger)}
+    .loading-msg{text-align:center;padding:30px;color:var(--muted);font-size:13px}
+    #photo-input,#aadhaar-photo-input,#pan-photo-input{display:none}
+  </style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="sp-icon">
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+      <!-- Hanuman/Sankat Mochan inspired shield logo -->
+      <circle cx="26" cy="26" r="24" fill="rgba(255,153,0,0.15)" stroke="#ff9900" stroke-width="1.5"/>
+      <path d="M26 6L42 16V28C42 38 35 45 26 48C17 45 10 38 10 28V16L26 6Z" fill="rgba(255,153,0,0.2)" stroke="#ff9900" stroke-width="1.5"/>
+      <text x="26" y="33" text-anchor="middle" font-family="serif" font-size="20" font-weight="700" fill="#ff9900">ॐ</text>
+    </svg>
+  </div>
+  <div class="sp-title" style="font-size:22px">संकट <span style="color:#ff9900">मोचन</span></div>
+  <div class="sp-hindi hindi" style="color:rgba(255,153,0,.7)">Finance Management</div>
+  <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+<svg width="26" height="26" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="52" height="52" rx="12" fill="#cc0000"/>
+          <rect width="52" height="52" rx="12" fill="url(#redgrad2)"/>
+          <defs>
+            <linearGradient id="redgrad2" x1="0" y1="0" x2="52" y2="52">
+              <stop offset="0%" stop-color="#ff1a1a"/>
+              <stop offset="100%" stop-color="#990000"/>
+            </linearGradient>
+          </defs>
+          <text x="26" y="20" text-anchor="middle" font-family="serif" font-size="11" font-weight="700" fill="white" letter-spacing="1">संकट</text>
+          <text x="26" y="34" text-anchor="middle" font-family="serif" font-size="11" font-weight="700" fill="#FFD700" letter-spacing="1">मोचन</text>
+          <text x="26" y="46" text-anchor="middle" font-family="serif" font-size="8" font-weight="400" fill="rgba(255,255,255,0.7)">Finance</text>
+        </svg>
+      </div>
+      <div class="auth-logo-text" style="font-family:serif">संकट <span style="color:#ff9900">मोचन</span></div>
+    </div>
+
+    <div id="login-form">
+      <div class="auth-title">Welcome Back <span class="hindi" style="font-size:13px;color:var(--muted)">— स्वागत है</span></div>
+      <div class="auth-sub">Sign in / अपने खाते में लॉगिन करें</div>
+      <div class="err-msg" id="login-err"></div>
+      <div class="field"><label>Email / ईमेल</label><input type="email" id="l-email" placeholder="आपका ईमेल"/></div>
+      <div class="field"><label>Password / पासवर्ड</label><input type="password" id="l-pass" placeholder="••••••••"/></div>
+      <button class="btn-primary" onclick="handleLogin()">Login / लॉगिन करें</button>
+      <div class="auth-switch">New user? <a onclick="showSignup()">Sign up / रजिस्टर करें</a></div>
+    </div>
+
+    <div id="signup-form" style="display:none">
+      <div class="auth-title">Create Account <span class="hindi" style="font-size:13px;color:var(--muted)">— खाता बनाएं</span></div>
+      <div class="auth-sub">Join your team / अपनी टीम से जुड़ें</div>
+      <div class="err-msg" id="su-err"></div>
+      <div class="success-msg" id="su-success"></div>
+      <div class="field"><label>Full Name / पूरा नाम</label><input id="su-name" placeholder="आपका नाम"/></div>
+      <div class="field"><label>Email / ईमेल</label><input type="email" id="su-email" placeholder="आपका ईमेल"/></div>
+      <div class="field"><label>Password / पासवर्ड</label><input type="password" id="su-pass" placeholder="Min 6 characters"/></div>
+      <div class="field"><label>Employee ID (optional)</label><input id="su-empid" placeholder="EMP-001"/></div>
+      <div class="field"><label>Role / भूमिका</label>
+        <select id="su-role"><option value="employee">Employee / कर्मचारी</option><option value="admin">Admin / व्यवस्थापक</option></select>
+      </div>
+      <div class="field" id="admin-password-field" style="display:none">
+        <label>Admin Approval Password / एडमिन पासवर्ड</label>
+        <input type="password" id="su-admin-pass" placeholder="Admin द्वारा दिया गया पासवर्ड"/>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">⚠️ Admin से approval password लें</div>
+      </div>
+      <button class="btn-primary" onclick="handleSignup()">Register / रजिस्टर करें</button>
+      <div class="auth-switch">Already registered? <a onclick="showLogin()">Login / लॉगिन</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo" style="font-family:serif;font-size:16px;display:flex;align-items:center;gap:8px"><svg width="28" height="28" viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="10" fill="url(#tg)"/><defs><linearGradient id="tg" x1="0" y1="0" x2="52" y2="52"><stop offset="0%" stop-color="#ff1a1a"/><stop offset="100%" stop-color="#880000"/></linearGradient></defs><text x="26" y="20" text-anchor="middle" font-family="serif" font-size="11" font-weight="700" fill="white" letter-spacing="1">संकट</text><text x="26" y="34" text-anchor="middle" font-family="serif" font-size="11" font-weight="700" fill="#FFD700" letter-spacing="1">मोचन</text><text x="26" y="46" text-anchor="middle" font-family="serif" font-size="8" fill="rgba(255,255,255,.7)">Finance</text></svg><span>संकट <span style="color:#ff9900">मोचन</span></span></div>
+    <div class="topbar-right">
+      
+      <div class="user-badge">
+        <span id="uname"></span>
+        <span class="role-pill" id="urole"></span>
+      </div>
+      <button class="logout-btn" onclick="handleLogout()">बाहर</button>
+    </div>
+  </div>
+
+  <div class="content" id="main-content"></div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard')"><span class="nav-icon">📊</span><span>Dashboard</span></button>
+    <button class="nav-item" id="nav-clients" onclick="showPage('clients')"><span class="nav-icon">👥</span><span>ग्राहक</span></button>
+    <button class="nav-item" id="nav-invoices" onclick="showPage('invoices')"><span class="nav-icon">☰</span><span>More</span></button>
+    <button class="nav-item" id="nav-team" onclick="showPage('team')"><span class="nav-icon">🏢</span><span>टीम</span></button>
+  </nav>
+</div>
+
+<!-- CLIENT FORM MODAL -->
+<div class="modal-overlay" id="client-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="cm-title">Add Client <span class="hindi">/ ग्राहक जोड़ें</span></div>
+    <div class="err-msg" id="cm-err"></div>
+
+    <!-- Profile Photo -->
+    <div class="form-section">
+      <div class="form-section-title">📸 Profile Photo / प्रोफाइल फोटो *</div>
+      <div class="photo-upload">
+        <div class="photo-preview" id="photo-preview-wrap">
+          <span id="photo-initial">?</span>
+        </div>
+        <div>
+          <button class="photo-btn" onclick="document.getElementById('photo-input').click()">📷 Upload Photo * (max 50KB)</button>
+          <div style="font-size:11px;color:var(--danger);margin-top:4px">⚠️ Auto compress होगी | Any size OK</div>
+          <div id="photo-size-info" style="font-size:11px;color:var(--success);margin-top:2px;font-weight:700"></div>
+        </div>
+      </div>
+      <input type="file" id="photo-input" accept="image/*" onchange="handlePhotoSelect(this)"/>
+    </div>
+
+    <!-- Personal Info -->
+    <div class="form-section">
+      <div class="form-section-title">👤 Personal Info / व्यक्तिगत जानकारी</div>
+      <div class="field"><label>Full Name * / पूरा नाम</label><input id="f-name" placeholder="ग्राहक का नाम"/></div>
+      <div class="field-row">
+        <div class="field"><label>Father's Name / पिता</label><input id="f-father" placeholder="पिता का नाम"/></div>
+        <div class="field"><label>Mother's Name / माता</label><input id="f-mother" placeholder="माता का नाम"/></div>
+      </div>
+      <div class="field"><label>Marital Status / वैवाहिक स्थिति</label>
+        <select id="f-marital" onchange="toggleSpouseName()">
+          <option value="unmarried">Unmarried / अविवाहित</option>
+          <option value="married">Married / विवाहित</option>
+          <option value="widowed">Widowed / विधवा/विधुर</option>
+          <option value="divorced">Divorced / तलाकशुदा</option>
+        </select>
+      </div>
+      <div class="field" id="spouse-field" style="display:none">
+        <label>Husband/Wife Name / पति/पत्नी का नाम</label>
+        <input id="f-spouse" placeholder="पति/पत्नी का नाम"/>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Date of Birth / जन्म तिथि</label><input type="date" id="f-dob"/></div>
+        <div class="field"><label>Client Type / प्रकार</label>
+          <select id="f-type"><option value="individual">Individual / व्यक्ति</option><option value="company">Company / कंपनी</option></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Age / आयु</label><input id="f-age" type="number" placeholder="आयु"/></div>
+        <div class="field"><label>Member No. / सदस्य संख्या</label><input id="f-member-no" placeholder="सदस्य संख्या"/></div>
+      </div>
+      <div class="field"><label>Guarantor Name / जमानतदार का नाम</label><input id="f-guarantor" placeholder="जमानतदार का नाम"/></div>
+      <div class="field"><label>Status / स्थिति</label>
+        <select id="f-status"><option value="active">Active / सक्रिय</option><option value="inactive">Inactive / निष्क्रिय</option><option value="vip">VIP</option></select>
+      </div>
+    </div>
+
+    <!-- Contact -->
+    <div class="form-section">
+      <div class="form-section-title">📞 Contact / संपर्क</div>
+      <div class="field"><label>Email / ईमेल</label><input type="email" id="f-email" placeholder="email@example.com"/></div>
+      <div class="field-row">
+        <div class="field">
+  <label>Phone / फोन * <span style="color:var(--success);font-size:11px">(+91 India auto)</span></label>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="background:#f0f4f8;border:1.5px solid var(--border);border-radius:10px;padding:11px 12px;font-size:14px;font-weight:700;color:var(--navy);flex-shrink:0">🇮🇳 +91</div>
+    <input id="f-phone" placeholder="98765 43210" style="flex:1" type="tel" maxlength="10"/>
+  </div>
+</div>
+        <div class="field"><label>Alt Phone / दूसरा</label><input id="f-phone2" placeholder="वैकल्पिक"/></div>
+      </div>
+
+      <!-- OTP Section -->
+      <div style="background:#fff8f0;border:1.5px solid #ff9900;border-radius:10px;padding:12px;margin-top:4px">
+        <div style="font-size:11px;font-weight:700;color:#cc6600;margin-bottom:8px">📱 WhatsApp OTP Verification / OTP सत्यापन</div>
+        <button id="otp-send-btn" type="button" onclick="sendClientOTP()" style="width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px">📲 Send OTP on WhatsApp / WhatsApp पर OTP भेजें</button>
+        <div id="otp-section" style="display:none">
+          <div class="field" style="margin-bottom:8px">
+            <label>Enter OTP / OTP डालें</label>
+            <input id="f-otp" type="number" placeholder="6 digit OTP" maxlength="6" style="letter-spacing:4px;font-size:18px;font-weight:700;text-align:center"/>
+          </div>
+          <button type="button" onclick="verifyClientOTP()" style="width:100%;padding:9px;background:#22c55e;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✅ Verify OTP / OTP verify करें</button>
+          <div id="otp-verified-badge" style="display:none;align-items:center;gap:6px;margin-top:8px;background:#dcfce7;border-radius:8px;padding:8px 12px">
+            <span style="font-size:16px">✅</span>
+            <span style="font-size:13px;font-weight:700;color:#166534">OTP Verified! ग्राहक सत्यापित!</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address -->
+    <div class="form-section">
+      <div class="form-section-title">🏠 Address / पता</div>
+      <div class="field"><label>Address 1 / पता 1 (Current / वर्तमान)</label><input id="f-address" placeholder="वर्तमान पता — मकान नं., गली, मोहल्ला"/></div>
+      <div class="field"><label>Address 2 / पता 2 (Permanent / स्थायी)</label><input id="f-address2" placeholder="स्थायी पता — गाँव, जिला"/></div>
+      <div class="field-row">
+        <div class="field"><label>City / शहर</label><input id="f-city" placeholder="शहर"/></div>
+        <div class="field"><label>State / राज्य</label><input id="f-state" placeholder="राज्य"/></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>PIN Code</label><input id="f-pin" placeholder="000000"/></div>
+        <div class="field"><label>Country / देश</label><input id="f-country" value="India"/></div>
+      </div>
+    </div>
+
+    <!-- Finance -->
+    <div class="form-section">
+      <div class="form-section-title">💰 Finance / वित्त</div>
+      <div class="field-row">
+        <div class="field"><label>Loan Amount (₹) / लोन राशि</label><input type="number" id="f-balance" placeholder="0.00"/></div>
+        <div class="field"><label>Interest Amount (₹) / ब्याज</label><input type="number" id="f-interest" placeholder="0.00"/></div>
+      </div>
+      <div class="field"><label>Loan ID</label><input id="f-loan-id" placeholder="Auto / Manual — LOAN-2026-0001"/></div>
+      <div class="field"><label>Finance Company / वित्त कंपनी</label><input id="f-bank" placeholder="कंपनी का नाम — e.g. Bajaj Finance"/></div>
+      <div class="field"><label>Customer ID / ग्राहक ID</label><input id="f-account" placeholder="Auto generate होगा"/></div>
+      <div class="field"><label>Loan Cycle / कितना वां लोन</label>
+        <select id="f-loan-cycle">
+          <option value="1st">1st Loan / पहला लोन</option>
+          <option value="2nd">2nd Loan / दूसरा लोन</option>
+          <option value="3rd">3rd Loan / तीसरा लोन</option>
+          <option value="4th">4th Loan / चौथा लोन</option>
+          <option value="5th">5th Loan / पाँचवाँ लोन</option>
+          <option value="6th+">6th+ Loan / छठा या अधिक</option>
+        </select>
+      </div>
+      <div class="field"><label>Loan Purpose / लोन उद्देश्य</label>
+        <select id="f-loan-purpose">
+          <option value="">Select / चुनें</option>
+          <option value="Business / व्यापार">🏪 Business / व्यापार</option>
+          <option value="Agriculture / खेती">🌾 Agriculture / खेती</option>
+          <option value="Education / शिक्षा">📚 Education / शिक्षा</option>
+          <option value="Home Repair / घर मरम्मत">🏠 Home Repair / घर मरम्मत</option>
+          <option value="Medical / चिकित्सा">🏥 Medical / चिकित्सा</option>
+          <option value="Marriage / शादी">💍 Marriage / शादी</option>
+          <option value="Other / अन्य">📋 Other / अन्य</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Membership Date / सदस्यता तिथि</label><input type="date" id="f-membership-date"/></div>
+        <div class="field"><label>Loan Date / वितरण दिनांक</label><input type="date" id="f-loan-date"/></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>First EMI Date / प्रथम किस्त</label><input type="date" id="f-first-emi-date"/></div>
+        <div class="field"><label>Card Issue Date / कार्ड जारी</label><input type="date" id="f-card-date"/></div>
+      </div>
+      <div class="field"><label>Notes / टिप्पणी</label><textarea id="f-notes" placeholder="कोई अतिरिक्त जानकारी…"></textarea></div>
+    </div>
+
+    <!-- Center Details -->
+    <div class="form-section">
+      <div class="form-section-title">🏘️ Center Details / सेंटर जानकारी</div>
+      <div class="field-row">
+        <div class="field"><label>Center Name / सेंटर नाम</label><input id="f-center-name" placeholder="सेंटर का नाम"/></div>
+        <div class="field"><label>Center Code / सेंटर कोड</label><input id="f-center-code" placeholder="e.g. CTR-001"/></div>
+      </div>
+      <div class="field"><label>Center Leader Name / सेंटर लीडर</label><input id="f-center-leader" placeholder="सेंटर लीडर का नाम"/></div>
+
+    </div>
+
+    <!-- KYC -->
+    <div class="form-section">
+      <div class="form-section-title">🪪 KYC Documents *</div>
+      <div class="field-row">
+        <div class="field"><label>Aadhaar No. * / आधार नं.</label><input id="f-aadhaar" placeholder="XXXX XXXX XXXX" maxlength="14"/></div>
+        <div class="field"><label>PAN No. * / पैन नं.</label><input id="f-pan" placeholder="ABCDE1234F" maxlength="10" style="text-transform:uppercase"/></div>
+      </div>
+
+      <!-- Aadhaar Photo Upload -->
+      <div class="field">
+        <label>Aadhaar Card Photo / आधार कार्ड फोटो (Optional - Max 50KB)</label>
+        <div class="doc-upload-box" onclick="document.getElementById('aadhaar-photo-input').click()">
+          <div id="aadhaar-preview-text">📄 Upload later / बाद में भी कर सकते हैं</div>
+          <img id="aadhaar-preview-img" class="doc-preview" style="display:none"/>
+        </div>
+        <input type="file" id="aadhaar-photo-input" accept="image/*" onchange="handleDocPhoto(this,'aadhaar')"/>
+      </div>
+
+      <!-- PAN Photo Upload -->
+      <div class="field">
+        <label>PAN Card Photo / पैन कार्ड फोटो (Optional - Max 50KB)</label>
+        <div class="doc-upload-box" onclick="document.getElementById('pan-photo-input').click()">
+          <div id="pan-preview-text">📄 Upload later / बाद में भी कर सकते हैं</div>
+          <img id="pan-preview-img" class="doc-preview" style="display:none"/>
+        </div>
+        <input type="file" id="pan-photo-input" accept="image/*" onchange="handleDocPhoto(this,'pan')"/>
+      </div>
+
+      <!-- KYC Approval (Admin only) -->
+      <div id="kyc-approve-section" style="display:none">
+        <div class="field"><label>✅ KYC Approval / KYC स्वीकृति</label>
+          <select id="f-kyc-approved">
+            <option value="false">Pending / लंबित ⏳</option>
+            <option value="true">Approved / स्वीकृत ✅</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assign (admin only) -->
+    <div class="form-section" id="assign-section" style="display:none">
+      <div class="form-section-title">👤 Assign To / किसे सौंपें</div>
+      <div class="field"><select id="f-assign"></select></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('client-modal')">Cancel / रद्द</button>
+      <button class="btn-danger" id="cm-del" style="display:none" onclick="deleteClient()">🗑</button>
+      <button class="btn-primary" style="flex:2" onclick="saveClient()">Save / सहेजें</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add Payment <span class="hindi">/ भुगतान जोड़ें</span></div>
+    <div class="form-section">
+      <div class="field"><label>Pay Mode / भुगतान माध्यम</label>
+        <select id="pay-desc">
+          <option value="Cash / नकद">💵 Cash / नकद</option>
+          <option value="UPI / GPay / PhonePe">📱 UPI / GPay / PhonePe</option>
+          <option value="Bank Transfer / NEFT">🏦 Bank Transfer / NEFT</option>
+          <option value="Cheque / चेक">📄 Cheque / चेक</option>
+          <option value="RTGS">💳 RTGS</option>
+          <option value="IMPS">📲 IMPS</option>
+          <option value="DD / Demand Draft">📋 DD / Demand Draft</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Amount (₹) / राशि</label><input type="number" id="pay-amt" placeholder="0"/></div>
+        <div class="field"><label>Type / प्रकार</label>
+          <select id="pay-type"><option value="credit">Received ✅</option><option value="debit">Paid ❌</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Date / तारीख</label><input type="date" id="pay-date"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('pay-modal')">Cancel</button>
+      <button class="btn-primary" style="flex:2" onclick="savePayment()">Add / जोड़ें</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVOICE MODAL -->
+<div class="modal-overlay" id="inv-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">New Invoice <span class="hindi">/ नया चालान</span></div>
+    <div class="form-section">
+      <div class="field"><label>Client / ग्राहक</label><select id="inv-client"></select></div>
+      <div class="field"><label>Description / विवरण</label><input id="inv-desc" placeholder="Service description"/></div>
+      <div class="field-row">
+        <div class="field"><label>Amount (₹)</label><input type="number" id="inv-amt" placeholder="0"/></div>
+        <div class="field"><label>Due Date / देय तारीख</label><input type="date" id="inv-due"/></div>
+      </div>
+      <div class="field"><label>Status</label>
+        <select id="inv-status"><option value="pending">Pending</option><option value="paid">Paid</option><option value="overdue">Overdue</option></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('inv-modal')">Cancel</button>
+      <button class="btn-primary" style="flex:2" onclick="saveInvoice()">Create / बनाएं</button>
+    </div>
+  </div>
+</div>
+
+<!-- APPROVE EMPLOYEE MODAL (Admin) -->
+<div class="modal-overlay" id="approve-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Employee Approval <span class="hindi">/ कर्मचारी स्वीकृति</span></div>
+    <div class="form-section">
+      <div id="approve-emp-info" style="margin-bottom:14px;font-size:14px;color:var(--navy)"></div>
+      <div class="field"><label>Set Login Password / लॉगिन पासवर्ड दें</label>
+        <input type="text" id="approve-password" placeholder="Employee का password set करें"/>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">यह password employee को दें login के लिए</div>
+      </div>
+      <div class="field"><label>Your Admin Password / आपका Admin पासवर्ड</label>
+        <input type="password" id="approve-admin-pass" placeholder="आपका password verify करें"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('approve-modal')">Cancel</button>
+      <button class="btn-primary" style="flex:2" onclick="approveEmployee()">Approve / स्वीकृत करें ✅</button>
+    </div>
+  </div>
+</div>
+
+<!-- OTP MODAL - SMS DEFAULT -->
+<div class="modal-overlay" id="otp-options-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:20px;font-weight:700;color:var(--navy)">📱 OTP भेजें</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">नीचे OTP SMS से जाएगा</div>
+    </div>
+
+    <!-- OTP Display Box -->
+    <div style="background:var(--navy);border-radius:14px;padding:20px;text-align:center;margin-bottom:20px">
+      <div style="font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Your OTP</div>
+      <div id="otp-display-box" style="font-family:monospace;font-size:36px;font-weight:700;letter-spacing:12px;color:#FFD700"></div>
+      <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:8px">10 minutes valid</div>
+    </div>
+
+    <!-- SMS Button Only -->
+    <button onclick="sendClientOTP('sms')"
+      style="width:100%;padding:16px;background:var(--navy);color:white;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:10px">
+      <span style="font-size:22px">📲</span>
+      SMS से OTP भेजें
+    </button>
+
+    <button onclick="closeModal('otp-options-modal')"
+      style="width:100%;padding:12px;background:#f1f5f9;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)">
+      Cancel / रद्द करें
+    </button>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal" id="detail-content"></div>
+</div>
+
+<div id="toast"></div>
+<script>
+function toggleSpouseName() {
+  const val = document.getElementById('f-marital').value;
+  document.getElementById('spouse-field').style.display = val === 'married' ? 'block' : 'none';
+}
+function showAdminPasswordField() {
+  const role = document.getElementById('su-role').value;
+  document.getElementById('admin-password-field').style.display = role === 'admin' ? 'block' : 'none';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const roleEl = document.getElementById('su-role');
+  if (roleEl) roleEl.addEventListener('change', showAdminPasswordField);
+});
+</script>
+<script src="app.js"></script>
+</body>
+</html>

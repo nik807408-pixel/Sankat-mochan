@@ -1,0 +1,19 @@
+{
+  "name": "Sankat Mochan Finance",
+  "short_name": "Sankat Mochan",
+  "description": "Sankat Mochan Finance Management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#cc0000",
+  "theme_color": "#cc0000",
+  "orientation": "portrait",
+  "lang": "hi",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
