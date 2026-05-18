@@ -805,7 +805,7 @@ async function saveClient() {
     pin_code: v('f-pin'), country: v('f-country'),
     aadhaar_no: v('f-aadhaar'), pan_no: v('f-pan').toUpperCase(),
     balance: parseFloat(v('f-balance')) || 0,
-    bank_name: v('f-bank'), account_no: v('f-account'),
+    bank_name: v('f-bank'),
     notes: v('f-notes'),
     loan_id: loanId,
     husband_wife_name: v('f-spouse'),
@@ -1716,7 +1716,7 @@ async function downloadClientPDF(clientId) {
         <div class="row"><span class="label">Interest / ब्याज</span><span class="value">₹${fmt(parseFloat(c.interest_amount)||0)}</span></div>
         <div class="row"><span class="label">Total Paid / कुल भुगतान</span><span class="value">₹${fmt(totalPaid)}</span></div>
         <div class="row"><span class="label">Pending / बाकी</span><span class="value">₹${fmt((parseFloat(c.balance)||0) - totalPaid)}</span></div>
-        <div class="row"><span class="label">Finance Company</span><span class="value">${c.finance_company || c.bank_name || '—'}</span></div>
+        <div class="row"><span class="label">Meeting Day / मीटिंग दिन</span><span class="value">${c.finance_company || c.bank_name || '—'}</span></div>
         <div class="row"><span class="label">Loan Cycle / वां लोन</span><span class="value">${c.loan_cycle || '—'}</span></div>
         <div class="row"><span class="label">Loan Purpose / उद्देश्य</span><span class="value">${c.loan_purpose || '—'}</span></div>
         <div class="row"><span class="label">Assigned To</span><span class="value">${emp?.name || '—'}</span></div>
@@ -2081,24 +2081,28 @@ function showClientPassbook(clientId) {
             const rows = [];
             
             // Fixed 12 weeks - Principal and Interest split
-            const weeklyEMI = Math.round((loan + interest) / 12);
+            const totalLoanPlusInterest = loan + interest;
+            const weeklyEMI = Math.round(totalLoanPlusInterest / 12);
             const weeklyPrincipal = Math.round(loan / 12);
             const weeklyInterest = Math.round(interest / 12);
 
             // Auto calculate weekly dates from first EMI date
             const startDate = cl.first_emi_date || cl.loan_date || new Date().toISOString().slice(0,10);
-            function getWeekDate(weekNum) {
+            function getWeekDate(wNum) {
               const d = new Date(startDate);
-              d.setDate(d.getDate() + (weekNum - 1) * 7);
+              d.setDate(d.getDate() + (wNum - 1) * 7);
               return d.toISOString().slice(0,10);
             }
+
+            // Outstanding starts from total loan + interest
+            let runningOutstanding = totalLoanPlusInterest;
             
             payments.forEach((p, i) => {
               weekNum++;
-              const received = parseFloat(p.amount) || 0;
-              const principalPart = weeklyPrincipal;
-              const interestPart = weeklyInterest;
-              outstanding = Math.max(0, outstanding - received);
+              const received = parseFloat(p.amount) || weeklyEMI;
+              // Outstanding reduces by EMI each week
+              runningOutstanding = Math.max(0, runningOutstanding - weeklyEMI);
+              outstanding = runningOutstanding;
               
               rows.push(`
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
@@ -2108,7 +2112,7 @@ function showClientPassbook(clientId) {
                   <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(interestPart)}</td>
                   <td style="padding:6px 8px;text-align:right;font-weight:600;border-right:1px solid var(--border)">₹${fmt(totalDuePerWeek)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;border-right:1px solid var(--border)">₹${fmt(received)}</td>
-                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(outstanding)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
                   <td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border)">✅</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px">${p.description||''}</td>
