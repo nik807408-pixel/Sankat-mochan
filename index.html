@@ -350,7 +350,17 @@
         <div class="field"><label>Interest Amount (₹) / ब्याज</label><input type="number" id="f-interest" placeholder="0.00"/></div>
       </div>
       <div class="field"><label>Loan ID</label><input id="f-loan-id" placeholder="Auto / Manual — LOAN-2026-0001"/></div>
-      <div class="field"><label>Finance Company / वित्त कंपनी</label><input id="f-bank" placeholder="कंपनी का नाम — e.g. Bajaj Finance"/></div>
+      <div class="field"><label>Meeting Day / मीटिंग दिन (Fixed)</label>
+        <select id="f-bank">
+          <option value="Monday / सोमवार">Monday / सोमवार</option>
+          <option value="Tuesday / मंगलवार">Tuesday / मंगलवार</option>
+          <option value="Wednesday / बुधवार">Wednesday / बुधवार</option>
+          <option value="Thursday / गुरुवार">Thursday / गुरुवार</option>
+          <option value="Friday / शुक्रवार">Friday / शुक्रवार</option>
+          <option value="Saturday / शनिवार">Saturday / शनिवार</option>
+          <option value="Sunday / रविवार">Sunday / रविवार</option>
+        </select>
+      </div>
       <div class="field"><label>Customer ID / ग्राहक ID</label><input id="f-account" placeholder="Auto generate होगा"/></div>
       <div class="field"><label>Loan Cycle / कितना वां लोन</label>
         <select id="f-loan-cycle">

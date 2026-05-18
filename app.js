@@ -2026,7 +2026,10 @@ function showClientPassbook(clientId) {
 
   const loan = parseFloat(cl.balance) || 0;
   const interest = parseFloat(cl.interest_amount) || 0;
-  const totalDuePerWeek = cl.emi_amount || Math.round((loan + interest) / 12);
+  const weeklyEMI = Math.round((loan + interest) / 12);
+  const weeklyPrincipal = Math.round(loan / 12);
+  const weeklyInterest = Math.round(interest / 12);
+  const totalDuePerWeek = cl.emi_amount || weeklyEMI;
 
   const c = document.getElementById('main-content');
   c.innerHTML = `
@@ -2076,12 +2079,16 @@ function showClientPassbook(clientId) {
             let weekNum = 0;
             const rows = [];
             
-            // Show paid weeks
+            // Fixed 12 weeks - Principal and Interest split
+            const weeklyEMI = Math.round((loan + interest) / 12);
+            const weeklyPrincipal = Math.round(loan / 12);
+            const weeklyInterest = Math.round(interest / 12);
+            
             payments.forEach((p, i) => {
               weekNum++;
               const received = parseFloat(p.amount) || 0;
-              const interestPart = outstanding > 0 ? Math.round(outstanding * 0.03) : 0;
-              const principalPart = received - interestPart;
+              const principalPart = weeklyPrincipal;
+              const interestPart = weeklyInterest;
               outstanding = Math.max(0, outstanding - received);
               
               rows.push(`
@@ -2101,14 +2108,14 @@ function showClientPassbook(clientId) {
 
             // Show remaining empty rows
             const totalWeeks = 12;
-            for (let i = weekNum + 1; i <= totalWeeks; i++) {
+            for (let i = weekNum + 1; i <= 12; i++) {
               rows.push(`
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
+                  <td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--muted);border-right:1px solid var(--border)">${i}</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
-                  <td style="padding:6px 8px;text-align:center;color:var(--muted);border-right:1px solid var(--border)">${i}</td>
-                  <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
-                  <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
-                  <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(totalDuePerWeek)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyPrincipal)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyEMI)}</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px;text-align:right;color:var(--danger);border-right:1px solid var(--border)">₹${fmt(Math.max(0,outstanding))}</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
