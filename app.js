@@ -965,7 +965,7 @@ async function openDetail(id) {
       <div class="detail-section-title">🏦 Finance / वित्त</div>
       ${dRow('Loan Amount / लोन राशि', c.balance ? '₹'+fmt(parseFloat(c.balance)||0) : '—')}
       ${dRow('Interest Amount / ब्याज', c.interest_amount ? '₹'+fmt(parseFloat(c.interest_amount)||0) : '—')}
-      ${dRow('Finance Company / कंपनी', c.finance_company || c.bank_name)}
+      ${dRow('Meeting Day / मीटिंग दिन', c.finance_company || c.bank_name)}
       ${dRow('Customer ID', c.customer_id || c.account_no)}
       ${dRow('Loan Cycle / वां लोन', c.loan_cycle)}
       ${dRow('Loan Purpose / उद्देश्य', c.loan_purpose)}
@@ -2053,7 +2053,7 @@ function showClientPassbook(clientId) {
         <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
         <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
         <div><span style="opacity:.6">Loan Cycle:</span> <strong>${cl.loan_cycle||'1st'}</strong></div>
-        <div><span style="opacity:.6">Meeting Day:</span> <strong>${cl.meeting_day||cl.finance_company||'Monday'}</strong></div>
+        <div><span style="opacity:.6">Meeting Day:</span> <strong>${cl.finance_company||cl.meeting_day||cl.bank_name||'—'}</strong></div>
       </div>
     </div>
 
