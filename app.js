@@ -2026,7 +2026,7 @@ function showClientPassbook(clientId) {
 
   const loan = parseFloat(cl.balance) || 0;
   const interest = parseFloat(cl.interest_amount) || 0;
-  const totalDuePerWeek = cl.emi_amount || Math.round((loan + interest) / 32);
+  const totalDuePerWeek = cl.emi_amount || Math.round((loan + interest) / 12);
 
   const c = document.getElementById('main-content');
   c.innerHTML = `
@@ -2100,7 +2100,7 @@ function showClientPassbook(clientId) {
             });
 
             // Show remaining empty rows
-            const totalWeeks = Math.max(12, weekNum + 2);
+            const totalWeeks = 12;
             for (let i = weekNum + 1; i <= totalWeeks; i++) {
               rows.push(`
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
