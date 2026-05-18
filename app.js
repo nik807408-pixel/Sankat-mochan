@@ -2044,15 +2044,16 @@ function showClientPassbook(clientId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><span style="opacity:.6">शाखा कार्यालय:</span> <strong>बलिया</strong></div>
         <div><span style="opacity:.6">केंद्र शाखा:</span> <strong>${cl.center_name||'—'}</strong></div>
-        <div><span style="opacity:.6">केंद्र संख्या / Code:</span> <strong>${cl.center_code||'—'}</strong></div>
+        <div><span style="opacity:.6">केंद्र ID:</span> <strong>${cl.center_code||'—'}</strong></div>
         <div><span style="opacity:.6">सदस्य:</span> <strong>${cl.name}</strong></div>
-        <div><span style="opacity:.6">सदस्य संख्या:</span> <strong>${cl.member_no||cl.customer_id||'—'}</strong></div>
-        <div><span style="opacity:.6">पति/जमानतदार:</span> <strong>${cl.husband_wife_name||cl.guarantor_name||'—'}</strong></div>
-        <div><span style="opacity:.6">मीटिंग दिन:</span> <strong>${cl.meeting_day||'—'}</strong></div>
-        <div><span style="opacity:.6">वितरण राशि:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
-        <div><span style="opacity:.6">किस्त राशि:</span> <strong style="color:#FFD700">₹${fmt(totalDuePerWeek)}</strong></div>
-        <div><span style="opacity:.6">प्रथम किस्त:</span> <strong>${cl.first_emi_date||'—'}</strong></div>
+        <div><span style="opacity:.6">W/O:</span> <strong>${cl.husband_wife_name||cl.guarantor_name||'—'}</strong></div>
+        <div><span style="opacity:.6">Mobile:</span> <strong>${cl.phone||'—'}</strong></div>
+        <div><span style="opacity:.6">Loan No.:</span> <strong>${cl.loan_id||cl.customer_id||'—'}</strong></div>
+        <div><span style="opacity:.6">DB Date:</span> <strong>${cl.loan_date||cl.first_emi_date||'—'}</strong></div>
+        <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
+        <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
         <div><span style="opacity:.6">Loan Cycle:</span> <strong>${cl.loan_cycle||'1st'}</strong></div>
+        <div><span style="opacity:.6">Meeting Day:</span> <strong>${cl.meeting_day||cl.finance_company||'Monday'}</strong></div>
       </div>
     </div>
 
@@ -2083,6 +2084,14 @@ function showClientPassbook(clientId) {
             const weeklyEMI = Math.round((loan + interest) / 12);
             const weeklyPrincipal = Math.round(loan / 12);
             const weeklyInterest = Math.round(interest / 12);
+
+            // Auto calculate weekly dates from first EMI date
+            const startDate = cl.first_emi_date || cl.loan_date || new Date().toISOString().slice(0,10);
+            function getWeekDate(weekNum) {
+              const d = new Date(startDate);
+              d.setDate(d.getDate() + (weekNum - 1) * 7);
+              return d.toISOString().slice(0,10);
+            }
             
             payments.forEach((p, i) => {
               weekNum++;
@@ -2112,7 +2121,7 @@ function showClientPassbook(clientId) {
               rows.push(`
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
                   <td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--muted);border-right:1px solid var(--border)">${i}</td>
-                  <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
+                  <td style="padding:6px 8px;text-align:center;color:var(--muted);border-right:1px solid var(--border);font-size:11px">${getWeekDate(i)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyPrincipal)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyEMI)}</td>
@@ -2152,6 +2161,10 @@ function printPassbook(clientId) {
   window.print();
 }
 
+function printMeetingSheet() {
+  window.print();
+}
+
 
 function filterPassbook() {
   const q = (document.getElementById('passbook-search')?.value || '').toLowerCase();
@@ -2177,39 +2190,155 @@ function showMeetingDay() {
     else byDay['Not Set / अनिर्धारित'].push(cl);
   });
 
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const dayName = today.toLocaleDateString('en-US', {weekday:'long'});
+
   c.innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
       <button onclick="showPage('invoices')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;color:var(--muted)">← Back</button>
       <div>
-        <div style="font-size:18px;font-weight:700;color:var(--navy)">🗓️ Meeting Day</div>
-        <div style="font-size:12px;color:var(--muted)">सेंटर मीटिंग schedule</div>
+        <div style="font-size:18px;font-weight:700;color:var(--navy)">🗓️ Center Day Sheet</div>
+        <div style="font-size:12px;color:var(--muted)">CDS — ${todayStr}</div>
       </div>
+      <button onclick="printMeetingSheet()" style="margin-left:auto;background:var(--navy);color:white;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Print CDS</button>
     </div>
 
     ${Object.entries(byDay).map(([day, clients]) => {
       if (!clients.length) return '';
       const dayShort = day.split('/')[0].trim();
       const isToday = new Date().toLocaleDateString('en-US', {weekday:'long'}) === dayShort;
+
+      // Calculate totals for CDS
+      const totalLoan = clients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
+      const totalOutstanding = clients.reduce((s,cl) => {
+        const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit').reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+        return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid);
+      }, 0);
+      const totalEMI = clients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/12), 0);
+
       return `
-        <div style="background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(15,37,71,.07);${isToday?'border:2px solid var(--gold)':''}">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div style="font-weight:700;font-size:14px;color:var(--navy)">
-              ${isToday?'⭐ ':''}${day}
-              ${isToday?'<span style="font-size:10px;background:var(--gold);color:var(--navy);padding:2px 8px;border-radius:8px;margin-left:6px">TODAY</span>':''}
+        <div style="margin-bottom:20px" id="cds-${day.replace(/\s/g,'-')}">
+          <!-- CDS Header -->
+          <div style="background:white;border-radius:14px;padding:14px;margin-bottom:2px;box-shadow:0 2px 8px rgba(15,37,71,.07);${isToday?'border:2px solid var(--gold)':'border:1px solid var(--border)'}">
+
+            <!-- Company Header -->
+            <div style="text-align:center;border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:10px">
+              <div style="font-size:15px;font-weight:700;color:var(--navy)">संकट मोचन Finance</div>
+              <div style="font-size:11px;color:var(--muted)">Center Day Sheet (CDS)</div>
             </div>
-            <span style="background:var(--navy);color:white;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px">${clients.length}</span>
+
+            <!-- Center Info Grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;margin-bottom:10px;background:#f8fafc;padding:10px;border-radius:8px">
+              <div><strong>Center:</strong> ${clients[0]?.center_name||'—'}</div>
+              <div><strong>CDS Date:</strong> ${todayStr}</div>
+              <div><strong>L.C.:</strong> ${clients[0]?.loan_cycle||'—'}</div>
+              <div><strong>Day:</strong> ${dayShort} ${isToday?'⭐ TODAY':''}</div>
+              <div><strong>Center ID:</strong> ${clients[0]?.center_code||'—'}</div>
+              <div><strong>Members:</strong> ${clients.length}</div>
+              <div><strong>Time:</strong> 9:00 AM</div>
+              <div><strong>T.Outstanding:</strong> <span style="color:var(--danger);font-weight:700">₹${fmt(totalOutstanding)}</span></div>
+              <div><strong>Staff:</strong> ${currentProfile?.name||'Admin'}</div>
+              <div><strong>NPA:</strong> 0</div>
+            </div>
+
+            <!-- CDS Table -->
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:10px;min-width:700px">
+                <thead>
+                  <tr style="background:var(--navy);color:white">
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">Loan No.</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">Client Name</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">Loan Amt</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">DB Date</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">INS.NO</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">OS (P/I)</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">NPA</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">P.DUE</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">INT.DUE</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">CRM</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">COLTD</th>
+                    <th style="padding:6px 4px;border:1px solid rgba(255,255,255,.2)">SIGN.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${clients.map((cl, i) => {
+                    const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
+                    const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+                    const loanAmt = parseFloat(cl.balance)||0;
+                    const intAmt = parseFloat(cl.interest_amount)||0;
+                    const totalDue = loanAmt + intAmt;
+                    const outstanding = Math.max(0, totalDue - totalPaid);
+                    const outstandingP = Math.max(0, loanAmt - payments.filter(p=>p.client_id===cl.id).length * Math.round(loanAmt/12));
+                    const outstandingI = Math.max(0, intAmt - payments.filter(p=>p.client_id===cl.id).length * Math.round(intAmt/12));
+                    const weeklyEMI = Math.round(totalDue/12);
+                    const weeklyP = Math.round(loanAmt/12);
+                    const weeklyI = Math.round(intAmt/12);
+                    const instNo = payments.length;
+
+                    return `<tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
+                      <td style="padding:5px 4px;border:1px solid var(--border);font-size:10px">${cl.loan_id||cl.customer_id||'—'}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);font-weight:600">
+                        ${cl.name}<br>
+                        <span style="font-size:9px;color:var(--muted)">W/O ${cl.husband_wife_name||cl.guarantor_name||'—'} / ${cl.phone||'—'}</span>
+                      </td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:right">₹${fmt(loanAmt)}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:center;font-size:9px">${cl.loan_date||cl.first_emi_date||'—'}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:center">${instNo}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:right;color:var(--danger)">${fmt(outstandingP)}/${fmt(outstandingI)}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:center">0</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:right">${fmt(weeklyP)}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:right">${fmt(weeklyI)}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border)"></td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);text-align:right;font-weight:700;color:var(--success)">${fmt(weeklyEMI)}</td>
+                      <td style="padding:5px 4px;border:1px solid var(--border);min-width:60px"></td>
+                    </tr>`;
+                  }).join('')}
+                  <!-- Total Row -->
+                  <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--navy)">
+                    <td colspan="2" style="padding:6px 4px;border:1px solid var(--border)">Total</td>
+                    <td style="padding:6px 4px;border:1px solid var(--border);text-align:right">₹${fmt(totalLoan)}</td>
+                    <td colspan="2" style="border:1px solid var(--border)"></td>
+                    <td style="padding:6px 4px;border:1px solid var(--border);text-align:right;color:var(--danger)">₹${fmt(totalOutstanding)}</td>
+                    <td style="padding:6px 4px;border:1px solid var(--border);text-align:center">0</td>
+                    <td colspan="3" style="border:1px solid var(--border)"></td>
+                    <td style="padding:6px 4px;border:1px solid var(--border);text-align:right;color:var(--success)">₹${fmt(totalEMI)}</td>
+                    <td style="border:1px solid var(--border)"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Denomination -->
+            <div style="margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <div style="background:#f8fafc;padding:6px 10px;font-size:11px;font-weight:700;color:var(--navy)">Denomination:</div>
+              <div style="display:grid;grid-template-columns:repeat(8,1fr);font-size:10px">
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">2000×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">500×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">200×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">100×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">50×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">20×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">10×</div>
+                <div style="padding:6px;border:1px solid var(--border);text-align:center">Total</div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border)"></div>
+                <div style="padding:10px;border:1px solid var(--border);font-weight:700;color:var(--success)">₹${fmt(totalEMI)}</div>
+              </div>
+            </div>
+
+            <!-- Signatures -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:14px;font-size:11px">
+              <div style="text-align:center;border-top:1px solid var(--navy);padding-top:6px">Signature of FO</div>
+              <div style="text-align:center;border-top:1px solid var(--navy);padding-top:6px">Signature of Group Leader</div>
+              <div style="text-align:center;border-top:1px solid var(--navy);padding-top:6px">Signature of Branch Manager</div>
+            </div>
           </div>
-          ${clients.map(cl => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-top:1px solid var(--border);font-size:13px" onclick="openDetail('${cl.id}')">
-              <div>
-                <div style="font-weight:600;color:var(--navy)">${cl.name}</div>
-                <div style="font-size:11px;color:var(--muted)">${cl.center_name||'No center'} · ${cl.phone||'—'}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-weight:700;color:var(--danger);font-size:12px">₹${fmt(parseFloat(cl.balance)||0)}</div>
-                <div style="font-size:10px;color:var(--muted)">${cl.loan_cycle||''}</div>
-              </div>
-            </div>`).join('')}
         </div>`;
     }).join('')}
   `;
