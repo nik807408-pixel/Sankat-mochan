@@ -2105,7 +2105,24 @@ function showClientPassbook(clientId) {
 }
 
 function printPassbook(clientId) {
+  // Add print class to body
+  document.body.classList.add('printing-passbook');
+  
+  // Hide nav and header for print
+  const nav = document.querySelector('.bottom-nav') || document.getElementById('nav-bar');
+  const header = document.querySelector('.top-bar') || document.querySelector('header');
+  
+  if (nav) nav.style.display = 'none';
+  if (header) header.style.display = 'none';
+  
   window.print();
+  
+  // Restore after print
+  setTimeout(() => {
+    if (nav) nav.style.display = '';
+    if (header) header.style.display = '';
+    document.body.classList.remove('printing-passbook');
+  }, 1000);
 }
 
 function printMeetingSheet() {
