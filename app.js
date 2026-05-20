@@ -2017,7 +2017,7 @@ function filterPassbookClients() {
   });
 }
 
-function showClientPassbook(clientId) {
+window.showClientPassbook = function showClientPassbook(clientId) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
@@ -2189,9 +2189,17 @@ function showMeetingDay() {
   byDay['Not Set / अनिर्धारित'] = [];
 
   allClients.forEach(cl => {
-    if (cl.meeting_day && byDay[cl.meeting_day]) byDay[cl.meeting_day].push(cl);
-    else if (cl.meeting_day) byDay['Not Set / अनिर्धारित'].push(cl);
-    else byDay['Not Set / अनिर्धारित'].push(cl);
+    // Check finance_company (old data) OR meeting_day (new data)
+    const mDay = cl.finance_company || cl.meeting_day || '';
+    if (!mDay) { byDay['Not Set / अनिर्धारित'].push(cl); return; }
+    // Match with days list
+    const matched = days.find(d => {
+      const d1 = d.split('/')[0].trim().toLowerCase();
+      const m1 = mDay.split('/')[0].trim().toLowerCase();
+      return d1 === m1 || d === mDay;
+    });
+    if (matched) byDay[matched].push(cl);
+    else { byDay['Not Set / अनिर्धारित'].push(cl); }
   });
 
   const today = new Date();
