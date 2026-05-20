@@ -2061,8 +2061,10 @@ function showClientPassbook(clientId) {
             });
 
             // Show remaining empty rows
-            const totalWeeks = 12;
+            let outCounter = runningOutstanding;
             for (let i = weekNum + 1; i <= 12; i++) {
+              outCounter = Math.max(0, outCounter - weeklyEMI);
+              const outVal = outCounter;
               rows.push(`
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
                   <td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--muted);border-right:1px solid var(--border)">${i}</td>
@@ -2071,7 +2073,7 @@ function showClientPassbook(clientId) {
                   <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--muted);border-right:1px solid var(--border)">₹${fmt(weeklyEMI)}</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
-                  <td style="padding:6px 8px;text-align:right;color:var(--danger);border-right:1px solid var(--border)">₹${fmt(Math.max(0,outstanding))}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(outVal)}</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px"></td>
