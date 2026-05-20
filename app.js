@@ -2017,7 +2017,7 @@ function filterPassbookClients() {
   });
 }
 
-window.showClientPassbook = function showClientPassbook(clientId) {
+function showClientPassbook(clientId) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
@@ -2183,23 +2183,29 @@ function showMeetingDay() {
   const c = document.getElementById('main-content');
   const days = ['Monday / सोमवार','Tuesday / मंगलवार','Wednesday / बुधवार','Thursday / गुरुवार','Friday / शुक्रवार','Saturday / शनिवार','Sunday / रविवार'];
 
-  // Group clients by meeting day
+  // Group clients by meeting day - check ALL possible fields
   const byDay = {};
   days.forEach(d => { byDay[d] = []; });
   byDay['Not Set / अनिर्धारित'] = [];
 
   allClients.forEach(cl => {
-    // Check finance_company (old data) OR meeting_day (new data)
-    const mDay = cl.finance_company || cl.meeting_day || '';
+    // Check finance_company (where meeting day is stored) OR meeting_day
+    const mDay = (cl.finance_company || cl.meeting_day || cl.bank_name || '').trim();
     if (!mDay) { byDay['Not Set / अनिर्धारित'].push(cl); return; }
-    // Match with days list
-    const matched = days.find(d => {
-      const d1 = d.split('/')[0].trim().toLowerCase();
-      const m1 = mDay.split('/')[0].trim().toLowerCase();
-      return d1 === m1 || d === mDay;
-    });
-    if (matched) byDay[matched].push(cl);
-    else { byDay['Not Set / अनिर्धारित'].push(cl); }
+    
+    // Try exact match first
+    if (byDay[mDay] !== undefined) { byDay[mDay].push(cl); return; }
+    
+    // Try partial match (Monday matches "Monday / सोमवार")
+    const mDayLower = mDay.split('/')[0].trim().toLowerCase();
+    const matched = days.find(d => d.split('/')[0].trim().toLowerCase() === mDayLower);
+    
+    if (matched) { byDay[matched].push(cl); }
+    else {
+      // Add as new day group
+      if (!byDay[mDay]) byDay[mDay] = [];
+      byDay[mDay].push(cl);
+    }
   });
 
   const today = new Date();
