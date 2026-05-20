@@ -1054,13 +1054,13 @@ let moreTab = 'emi';
 
 function renderInvoicesPage(c) {
   c.innerHTML = `
-    <div style="margin-bottom:16px">
+    <div class="no-print" style="margin-bottom:16px">
       <div style="font-size:18px;font-weight:700;color:var(--navy)">☰ More / अधिक</div>
       <div style="font-size:12px;color:var(--muted)">EMI, Passbook & Meeting Day</div>
     </div>
 
     <!-- Tabs -->
-    <div class="tabs" style="margin-bottom:16px">
+    <div class="tabs no-print" style="margin-bottom:16px">
       <button class="tab ${moreTab==='emi'?'active':''}" onclick="switchMoreTab('emi',this)" style="flex:1">📅 EMI Tracker</button>
       <button class="tab ${moreTab==='passbook'?'active':''}" onclick="switchMoreTab('passbook',this)" style="flex:1">📒 Passbook</button>
       <button class="tab ${moreTab==='meeting'?'active':''}" onclick="switchMoreTab('meeting',this)" style="flex:1">🏘️ Meeting</button>
