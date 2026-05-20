@@ -1255,44 +1255,183 @@ function renderPassbookTab() {
 
 function renderMeetingTab() {
   const days = ['Monday / सोमवार','Tuesday / मंगलवार','Wednesday / बुधवार','Thursday / गुरुवार','Friday / शुक्रवार','Saturday / शनिवार','Sunday / रविवार'];
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const dayName = today.toLocaleDateString('en-US', {weekday:'long'});
 
-  return `
-    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:14px">🏘️ Meeting Day Schedule / मीटिंग अनुसूची</div>
+  // Group clients by meeting day (check finance_company OR meeting_day)
+  const byDay = {};
+  days.forEach(d => { byDay[d] = []; });
 
-    ${days.map(day => {
-      const dayShort = day.split('/')[0].trim().toLowerCase();
-      const clients = allClients.filter(c => {
-        const mDay = (c.finance_company || c.meeting_day || '').trim();
-        return mDay === day || mDay.split('/')[0].trim().toLowerCase() === dayShort;
-      });
-      if (!clients.length) return '';
-      return `
-        <div style="background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(15,37,71,.07)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div style="font-weight:700;color:var(--navy);font-size:14px">📅 ${day}</div>
-            <span style="background:var(--navy);color:white;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700">${clients.length} clients</span>
-          </div>
-          ${clients.map(c => {
-            const pays = allPayments.filter(p => p.client_id === c.id && p.type==='credit');
-            const paid = pays.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
-            const pending = Math.max(0,(parseFloat(c.balance)||0) - paid);
-            return `
-              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)" onclick="openDetail('${c.id}')">
-                <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--navy2),var(--navy));display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--gold);flex-shrink:0">${c.name?.charAt(0).toUpperCase()}</div>
-                <div style="flex:1">
-                  <div style="font-size:13px;font-weight:700;color:var(--navy)">${c.name}</div>
-                  <div style="font-size:10px;color:var(--muted)">${c.center_name||''} ${c.center_leader?'| Leader: '+c.center_leader:''}</div>
-                </div>
-                <div style="text-align:right">
-                  <div style="font-size:12px;font-weight:700;color:var(--danger)">₹${fmt(pending)}</div>
-                  <div style="font-size:10px;color:var(--muted)">pending</div>
-                </div>
-              </div>`;
-          }).join('')}
-        </div>`;
-    }).join('') || emptyState('🏘️','No meeting scheduled<br>Client में Meeting Day set करें')}
-  `;
+  allClients.forEach(cl => {
+    const mDay = (cl.finance_company || cl.meeting_day || '').trim();
+    if (!mDay) return;
+    if (byDay[mDay] !== undefined) { byDay[mDay].push(cl); return; }
+    const mLow = mDay.split('/')[0].trim().toLowerCase();
+    const matched = days.find(d => d.split('/')[0].trim().toLowerCase() === mLow);
+    if (matched) byDay[matched].push(cl);
+  });
+
+  let html = '';
+
+  days.forEach(day => {
+    const clients = byDay[day];
+    if (!clients.length) return;
+
+    const dayShort = day.split('/')[0].trim();
+    const isToday = dayName === dayShort;
+    const totalLoan = clients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
+    const totalOutstanding = clients.reduce((s,cl) => {
+      const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit').reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+      return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid);
+    }, 0);
+    const totalEMI = clients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/12), 0);
+    const totalPDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.balance)||0)/12), 0);
+    const totalIDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.interest_amount)||0)/12), 0);
+
+    html += '<div style="margin-bottom:20px;border:1px solid #ccc;border-radius:8px;overflow:hidden;background:white">';
+    
+    // Company Header
+    html += '<div style="text-align:center;padding:10px;border-bottom:2px solid #000">';
+    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">संकट मोचन Finance</div>';
+    html += '<div style="font-size:11px;color:#666">शाखा कार्यालय: बलिया</div>';
+    html += '</div>';
+
+    // Center Info - Row 1
+    html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html += '<tr>';
+    html += '<td style="border:1px solid #ccc;padding:5px;width:33%"><strong>'+clients[0]?.center_name+' / '+clients[0]?.center_code+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;width:34%;text-align:center"><strong>'+day+'</strong>'+(isToday?' ⭐ TODAY':'')+'</td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;width:33%">'+day.split('/')[0].trim().toUpperCase()+'</td>';
+    html += '</tr>';
+    
+    // Row 2
+    html += '<tr>';
+    html += '<td style="border:1px solid #ccc;padding:5px">CDS Date: <strong>'+todayStr+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;text-align:center">Day: <strong>'+dayShort+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px">Time: <strong>9:00 AM</strong></td>';
+    html += '</tr>';
+    
+    // Row 3
+    html += '<tr>';
+    html += '<td style="border:1px solid #ccc;padding:5px">L.C.: <strong>'+(clients[0]?.loan_cycle||'—')+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;text-align:center">Members: <strong>'+clients.length+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px">T.Outstanding: <strong style="color:red">₹'+fmt(totalOutstanding)+'</strong></td>';
+    html += '</tr>';
+    
+    // Row 4
+    html += '<tr>';
+    html += '<td style="border:1px solid #ccc;padding:5px">Center ID: <strong>'+(clients[0]?.center_code||'—')+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px">Receipt No: </td>';
+    html += '<td style="border:1px solid #ccc;padding:5px">Staff: <strong>'+currentProfile?.name+'</strong></td>';
+    html += '</tr>';
+    
+    // NPA + Remarks
+    html += '<tr>';
+    html += '<td style="border:1px solid #ccc;padding:5px">NPA: <strong>0</strong></td>';
+    html += '<td colspan="2" style="border:1px solid #ccc;padding:5px">Remarks: </td>';
+    html += '</tr>';
+    html += '</table>';
+
+    // CENTER CDS Title
+    html += '<div style="text-align:center;font-weight:700;font-size:13px;padding:6px;background:#f5f5f5;border-top:1px solid #ccc;border-bottom:1px solid #ccc">CENTER CDS</div>';
+
+    // Main Table
+    html += '<div style="overflow-x:auto">';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:10px;min-width:800px">';
+    html += '<thead><tr style="background:#1a2e4a;color:white">';
+    html += '<th style="padding:5px 4px;border:1px solid #444">LOAN NO.</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">CLIENT NAME</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">LOAN AMT</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">DB DATE</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">INS.NO</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">OS (P/I)</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">NPA</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">P.DUE</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">INT.DUE</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">CRM</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">COLTD</th>';
+    html += '<th style="padding:5px 4px;border:1px solid #444">SIGN.</th>';
+    html += '</tr></thead><tbody>';
+
+    clients.forEach((cl, i) => {
+      const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
+      const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+      const loanAmt = parseFloat(cl.balance)||0;
+      const intAmt = parseFloat(cl.interest_amount)||0;
+      const outstandingP = Math.max(0, loanAmt - payments.length * Math.round(loanAmt/12));
+      const outstandingI = Math.max(0, intAmt - payments.length * Math.round(intAmt/12));
+      const pDue = Math.round(loanAmt/12);
+      const iDue = Math.round(intAmt/12);
+      const emi = pDue + iDue;
+      const instNo = payments.length;
+      const dbDate = cl.loan_date || cl.first_emi_date || '—';
+      const bg = i%2===0 ? 'white' : '#f9f9f9';
+
+      html += '<tr style="background:'+bg+'">';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;font-size:10px">'+(cl.loan_id||cl.customer_id||'—')+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;font-weight:600">'+cl.name+'<br><span style="font-size:9px;color:#666">W/O '+(cl.husband_wife_name||cl.guarantor_name||'—')+' / '+(cl.phone||'—')+'</span></td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right">'+fmt(loanAmt)+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:center;font-size:9px">'+dbDate+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:center">'+instNo+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right;color:red">'+fmt(outstandingP)+'/'+fmt(outstandingI)+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:center">0</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right">'+fmt(pDue)+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right">'+fmt(iDue)+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;min-width:50px"></td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right;font-weight:700;color:green">'+fmt(emi)+'</td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;min-width:60px"></td>';
+      html += '</tr>';
+    });
+
+    // Total Row
+    html += '<tr style="background:#f0f4f8;font-weight:700;border-top:2px solid #1a2e4a">';
+    html += '<td colspan="2" style="padding:6px 4px;border:1px solid #ddd">Total</td>';
+    html += '<td style="padding:6px 4px;border:1px solid #ddd;text-align:right">'+fmt(totalLoan)+'</td>';
+    html += '<td colspan="2" style="border:1px solid #ddd"></td>';
+    html += '<td style="padding:6px 4px;border:1px solid #ddd;text-align:right;color:red">'+fmt(totalOutstanding)+'</td>';
+    html += '<td style="padding:6px 4px;border:1px solid #ddd;text-align:center">0</td>';
+    html += '<td style="padding:6px 4px;border:1px solid #ddd;text-align:right">'+fmt(totalPDue)+'</td>';
+    html += '<td style="padding:6px 4px;border:1px solid #ddd;text-align:right">'+fmt(totalIDue)+'</td>';
+    html += '<td style="border:1px solid #ddd"></td>';
+    html += '<td style="padding:6px 4px;border:1px solid #ddd;text-align:right;color:green">'+fmt(totalEMI)+'</td>';
+    html += '<td style="border:1px solid #ddd"></td>';
+    html += '</tr>';
+    html += '</tbody></table></div>';
+
+    // Denomination
+    html += '<div style="padding:8px;border-top:1px solid #ccc">';
+    html += '<div style="font-weight:700;font-size:11px;margin-bottom:6px"><em>Denomination:</em></div>';
+    html += '<table style="width:100%;border-collapse:collapse;font-size:10px">';
+    html += '<tr>';
+    ['2000 X .','500 X .','200 X .','100 X .','50 X .','20 X .','10 X .','Coins .','Total'].forEach(d => {
+      html += '<td style="border:1px solid #ccc;padding:5px;text-align:center">'+d+'</td>';
+    });
+    html += '</tr><tr>';
+    for(let j=0;j<8;j++) html += '<td style="border:1px solid #ccc;padding:10px"></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;text-align:right;font-weight:700;color:green">₹'+fmt(totalEMI)+'</td>';
+    html += '</tr></table></div>';
+
+    // Signatures
+    html += '<table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:11px">';
+    html += '<tr>';
+    html += '<td style="border-top:1px solid #000;padding:5px;text-align:center;width:33%">Signature of FO</td>';
+    html += '<td style="border-top:1px solid #000;padding:5px;text-align:center;width:34%">Signature of Group Leader</td>';
+    html += '<td style="border-top:1px solid #000;padding:5px;text-align:center;width:33%">Signature of Branch Manager</td>';
+    html += '</tr></table>';
+    
+    // Print button
+    html += '<div style="text-align:center;padding:10px">';
+    html += '<button onclick="window.print()" style="background:#1a2e4a;color:white;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print CDS</button>';
+    html += '</div>';
+    
+    html += '</div>'; // end card
+  });
+
+  if (!html) return emptyState('🏘️','No meeting scheduled<br>Client में Meeting Day set करें');
+  return html;
 }
+
 
 function exportPaymentsExcel() {
   if (!allPayments.length) { showToast('No payments to export', 'error'); return; }
