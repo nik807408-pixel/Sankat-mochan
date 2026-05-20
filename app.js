@@ -2053,7 +2053,7 @@ function showClientPassbook(clientId) {
                   <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
                   <td style="padding:6px 8px;text-align:right;font-weight:600;border-right:1px solid var(--border)">₹${fmt(totalDuePerWeek)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;border-right:1px solid var(--border)">₹${fmt(received)}</td>
-                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(remainingOutstanding)}</td>
                   <td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border)">✅</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px">${p.description||''}</td>
