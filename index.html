@@ -140,49 +140,59 @@
 
   /* ── PRINT STYLES ── */
   @media print {
-    /* Hide everything */
+    /* Hide ALL app UI */
     .bottom-nav,
+    nav,
+    header,
     .top-bar,
-    #nav-bar,
+    #app-header,
     .tabs,
     button,
     .search-bar,
     #passbook-client-list,
-    .modal-overlay {
+    .modal-overlay,
+    .section-hdr,
+    .app-title,
+    .nav-bar {
       display: none !important;
     }
-    
-    /* Show only passbook content */
-    body {
+
+    /* Hide More/अधिक heading */
+    #main-content > div:first-child {
+      display: none !important;
+    }
+
+    body, html {
       background: white !important;
       padding: 0 !important;
       margin: 0 !important;
     }
-    
+
     #main-content {
       padding: 0 !important;
       margin: 0 !important;
+      width: 100% !important;
     }
-    
-    /* Show print button area */
-    .print-only {
-      display: block !important;
-    }
-    
-    /* Table print styles */
+
+    /* Full width tables */
     table {
       width: 100% !important;
-      font-size: 10px !important;
+      font-size: 9px !important;
+      overflow: visible !important;
     }
-    
+
+    div[style*="overflow-x:auto"] {
+      overflow: visible !important;
+    }
+
     th, td {
-      padding: 4px !important;
+      padding: 3px !important;
+      white-space: normal !important;
     }
-    
-    /* Page break */
-    @page {
-      margin: 10mm;
-      size: A4;
+
+    .no-print { } @page {
+      margin: 8mm;
+      size: A4 landscape;
     }
   }
   </style>
