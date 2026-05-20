@@ -1240,7 +1240,7 @@ function renderPassbookTab() {
     const initials = cl.name?.charAt(0).toUpperCase() || '?';
     const photoHtml = cl.photo_url ? '<img src="'+cl.photo_url+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : initials;
     
-    html += '<div onclick="showClientPassbook(\''+cl.id+'\')" style="background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;align-items:center;gap:12px;cursor:pointer">';
+    html += '<div data-cid="'+cl.id+'" onclick="passbookOpen(this)" style="background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;align-items:center;gap:12px;cursor:pointer">';
     html += '<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--gold);flex-shrink:0;overflow:hidden">'+photoHtml+'</div>';
     html += '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:var(--navy)">'+cl.name+'</div>';
     html += '<div style="font-size:11px;color:var(--muted)">'+(cl.customer_id||'')+' · '+(cl.center_name||'')+'</div>';
@@ -1951,6 +1951,12 @@ function filterPassbookClients() {
     el.style.display = !q || el.dataset.name.includes(q) ? 'flex' : 'none';
   });
 }
+
+function passbookOpen(el) {
+  const id = el.getAttribute('data-cid') || el.closest('[data-cid]')?.getAttribute('data-cid');
+  if (id) showClientPassbook(id);
+}
+
 
 function showClientPassbook(clientId) {
   const cl = allClients.find(x => x.id === clientId);
