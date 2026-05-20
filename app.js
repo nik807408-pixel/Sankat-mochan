@@ -1226,102 +1226,33 @@ function renderEMITab() {
 
 // ── PASSBOOK TAB ──────────────────────────
 function renderPassbookTab() {
-  const clientsWithLoans = allClients.filter(cl => parseFloat(cl.balance) > 0);
-
-  return `
-    <div style="margin-bottom:12px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">📒 Client Passbook / पासबुक</div>
-      <select id="passbook-client" onchange="showPassbook(this.value)" style="width:100%;padding:11px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:Lato,sans-serif;background:white;outline:none">
-        <option value="">-- Client चुनें --</option>
-        ${allClients.map(c => `<option value="${c.id}">${c.name} ${c.customer_id?'('+c.customer_id+')':''}</option>`).join('')}
-      </select>
-    </div>
-    <div id="passbook-content">${emptyState('📒','Client चुनें passbook देखने के लिए')}</div>
-  `;
+  const clients = allClients;
+  if (clients.length === 0) return emptyState('📒','No clients yet');
+  
+  let html = '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:700;color:var(--navy)">📒 Client चुनें</div></div>';
+  
+  clients.forEach(cl => {
+    const payments = allPayments.filter(p => p.client_id === cl.id && p.type === 'credit');
+    const loan = parseFloat(cl.balance)||0;
+    const interest = parseFloat(cl.interest_amount)||0;
+    const totalPaid = payments.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+    const outstanding = Math.max(0, (loan+interest) - totalPaid);
+    const initials = cl.name?.charAt(0).toUpperCase() || '?';
+    const photoHtml = cl.photo_url ? '<img src="'+cl.photo_url+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : initials;
+    
+    html += '<div onclick="showClientPassbook(\''+cl.id+'\')" style="background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;align-items:center;gap:12px;cursor:pointer">';
+    html += '<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--gold);flex-shrink:0;overflow:hidden">'+photoHtml+'</div>';
+    html += '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:var(--navy)">'+cl.name+'</div>';
+    html += '<div style="font-size:11px;color:var(--muted)">'+(cl.customer_id||'')+' · '+(cl.center_name||'')+'</div>';
+    html += '<div style="font-size:11px;color:var(--muted)">'+payments.length+' payments</div></div>';
+    html += '<div style="text-align:right"><div style="font-weight:700;color:var(--danger);font-size:13px">₹'+fmt(outstanding)+'</div>';
+    html += '<div style="font-size:10px;color:var(--muted)">outstanding</div></div></div>';
+  });
+  
+  return html;
 }
 
-async function showPassbook(clientId) {
-  if (!clientId) return;
-  const c = allClients.find(x => x.id === clientId);
-  if (!c) return;
 
-  const { data: payments } = await db.from('payments').select('*').eq('client_id', clientId).order('date', { ascending: true });
-  const pays = payments || [];
-
-  const loanAmt = parseFloat(c.balance) || 0;
-  const interest = parseFloat(c.interest_amount) || 0;
-  const totalDue = loanAmt + interest;
-  let runningBalance = totalDue;
-  let totalPaid = 0;
-
-  const rows = pays.map((p, i) => {
-    const amt = parseFloat(p.amount) || 0;
-    if (p.type === 'credit') { runningBalance -= amt; totalPaid += amt; }
-    else runningBalance += amt;
-    return `
-      <tr style="background:${i%2===0?'white':'#f8fafc'}">
-        <td style="padding:8px;font-size:11px;color:var(--muted)">${i+1}</td>
-        <td style="padding:8px;font-size:11px">${p.date||'—'}</td>
-        <td style="padding:8px;font-size:11px">${p.description||'Cash'}</td>
-        <td style="padding:8px;font-size:12px;font-weight:700;color:${p.type==='credit'?'var(--success)':'var(--danger)'};text-align:right">
-          ${p.type==='credit'?'+':'-'}₹${fmt(amt)}
-        </td>
-        <td style="padding:8px;font-size:12px;font-weight:700;color:var(--danger);text-align:right">₹${fmt(Math.max(0,runningBalance))}</td>
-      </tr>`;
-  }).join('');
-
-  document.getElementById('passbook-content').innerHTML = `
-    <!-- Passbook Header -->
-    <div style="background:var(--navy);border-radius:14px;padding:16px;margin-bottom:12px;color:white">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-        <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;font-family:serif;color:var(--gold)">${c.name?.charAt(0).toUpperCase()}</div>
-        <div>
-          <div style="font-size:16px;font-weight:700">${c.name}</div>
-          <div style="font-size:11px;opacity:.7">${c.customer_id||''} ${c.loan_id?'| '+c.loan_id:''}</div>
-          <div style="font-size:11px;opacity:.7">${c.center_name||''} ${c.meeting_day?'| '+c.meeting_day:''}</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-        <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:9px;opacity:.6;margin-bottom:2px">Loan</div>
-          <div style="font-size:13px;font-weight:700">₹${fmt(loanAmt)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:9px;opacity:.6;margin-bottom:2px">Paid</div>
-          <div style="font-size:13px;font-weight:700;color:#86efac">₹${fmt(totalPaid)}</div>
-        </div>
-        <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:9px;opacity:.6;margin-bottom:2px">Balance</div>
-          <div style="font-size:13px;font-weight:700;color:#fca5a5">₹${fmt(Math.max(0,runningBalance))}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Transaction Table -->
-    ${pays.length === 0 ? emptyState('📒','No transactions yet') : `
-    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px">
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead>
-          <tr style="background:var(--navy);color:white">
-            <th style="padding:8px;text-align:left">#</th>
-            <th style="padding:8px;text-align:left">Date</th>
-            <th style="padding:8px;text-align:left">Mode</th>
-            <th style="padding:8px;text-align:right">Amount</th>
-            <th style="padding:8px;text-align:right">Balance</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`}
-
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="downloadClientPDF('${clientId}')" style="flex:1;padding:11px;background:var(--navy);color:white;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print Passbook</button>
-      <button onclick="activeClientId='${clientId}';openPayModal()" style="flex:1;padding:11px;background:var(--success);color:white;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">+ किस्त जोड़ें</button>
-    </div>
-  `;
-}
-
-// ── MEETING DAY TAB ───────────────────────
 function renderMeetingTab() {
   const days = ['Monday / सोमवार','Tuesday / मंगलवार','Wednesday / बुधवार','Thursday / गुरुवार','Friday / शुक्रवार','Saturday / शनिवार','Sunday / रविवार'];
 
@@ -1329,7 +1260,11 @@ function renderMeetingTab() {
     <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:14px">🏘️ Meeting Day Schedule / मीटिंग अनुसूची</div>
 
     ${days.map(day => {
-      const clients = allClients.filter(c => c.meeting_day === day);
+      const dayShort = day.split('/')[0].trim().toLowerCase();
+      const clients = allClients.filter(c => {
+        const mDay = (c.finance_company || c.meeting_day || '').trim();
+        return mDay === day || mDay.split('/')[0].trim().toLowerCase() === dayShort;
+      });
       if (!clients.length) return '';
       return `
         <div style="background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(15,37,71,.07)">
@@ -1993,7 +1928,7 @@ function showPassbook() {
           const loan = parseFloat(cl.balance)||0;
           const outstanding = Math.max(0, loan - totalPaid);
           return `
-          <div class="client-card passbook-client" data-id="${cl.id}" data-name="${cl.name.toLowerCase()}" onclick="showClientPassbook('${cl.id}')" style="margin-bottom:10px">
+          <div class="client-card passbook-client" data-id="${cl.id}" data-name="${cl.name.toLowerCase()}" onclick="showClientPassbook('${cl.id}')" ontouchend="event.preventDefault();showClientPassbook('${cl.id}')" style="margin-bottom:10px;cursor:pointer">
             <div class="client-avatar">${cl.name?.charAt(0).toUpperCase()}${cl.photo_url?`<img src="${cl.photo_url}" class="avatar-img"/>`:''}
             </div>
             <div class="client-info">
