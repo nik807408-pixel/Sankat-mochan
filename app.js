@@ -2049,8 +2049,8 @@ function showClientPassbook(clientId) {
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
                   <td style="padding:6px 8px;text-align:center;color:var(--muted);border-right:1px solid var(--border)">${p.date||'—'}</td>
                   <td style="padding:6px 8px;text-align:center;font-weight:700;border-right:1px solid var(--border)">${weekNum}</td>
-                  <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(principalPart)}</td>
-                  <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(interestPart)}</td>
+                  <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyPrincipal)}</td>
+                  <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
                   <td style="padding:6px 8px;text-align:right;font-weight:600;border-right:1px solid var(--border)">₹${fmt(totalDuePerWeek)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;border-right:1px solid var(--border)">₹${fmt(received)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
