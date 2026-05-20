@@ -137,6 +137,54 @@
     #toast.success{background:#16a34a}#toast.error{background:var(--danger)}
     .loading-msg{text-align:center;padding:30px;color:var(--muted);font-size:13px}
     #photo-input,#aadhaar-photo-input,#pan-photo-input{display:none}
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    /* Hide everything */
+    .bottom-nav,
+    .top-bar,
+    #nav-bar,
+    .tabs,
+    button,
+    .search-bar,
+    #passbook-client-list,
+    .modal-overlay {
+      display: none !important;
+    }
+    
+    /* Show only passbook content */
+    body {
+      background: white !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    #main-content {
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    /* Show print button area */
+    .print-only {
+      display: block !important;
+    }
+    
+    /* Table print styles */
+    table {
+      width: 100% !important;
+      font-size: 10px !important;
+    }
+    
+    th, td {
+      padding: 4px !important;
+    }
+    
+    /* Page break */
+    @page {
+      margin: 10mm;
+      size: A4;
+    }
+  }
   </style>
 </head>
 <body>
