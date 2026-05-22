@@ -2719,3 +2719,40 @@ function showMeetingDay() {
     }).join('')}
   `;
 }
+// ── REVERSE PAYMENT (Admin only) ──────────
+async function reversePayment(paymentId, amount, type) {
+  if (currentProfile?.role !== 'admin') {
+    showToast('Admin only! / सिर्फ Admin', 'error');
+    return;
+  }
+
+  const reason = prompt('Reversal का कारण बताएं:\n(Reason for reversal)', 'Wrong entry reversed');
+  if (!reason) return;
+
+  try {
+    // Create reverse entry (opposite type)
+    const reverseType = type === 'credit' ? 'debit' : 'credit';
+    const today = new Date().toISOString().slice(0,10);
+
+    const { data, error } = await db.from('payments').insert({
+      client_id: allPayments.find(p => p.id === paymentId)?.client_id,
+      amount: parseFloat(amount),
+      type: reverseType,
+      description: '↩️ Reversal: ' + reason,
+      date: today,
+      created_by: currentUser.id
+    }).select().single();
+
+    if (error) throw error;
+
+    allPayments.unshift(data);
+    showToast('✅ Reversal entry added!', 'success');
+
+    // Refresh detail view
+    if (activeClientId) openDetail(activeClientId);
+
+  } catch(err) {
+    console.error('Reverse error:', err);
+    showToast('Reversal failed! Try again', 'error');
+  }
+}
