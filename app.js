@@ -1483,7 +1483,7 @@ function renderMeetingTab() {
     
     // Print button
     html += '<div style="text-align:center;padding:10px">';
-    html += '<button onclick="window.print()" style="background:#1a2e4a;color:white;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print CDS</button>';
+    html += '<button onclick="printMeetingSheet()" style="background:#1a2e4a;color:white;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print CDS</button>';
     html += '</div>';
     
     html += '</div>'; // end card
