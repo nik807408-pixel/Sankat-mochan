@@ -2326,7 +2326,205 @@ function printPassbook(clientId) {
 }
 
 function printMeetingSheet() {
-  window.print();
+  const days = ['Monday / सोमवार','Tuesday / मंगलवार','Wednesday / बुधवार','Thursday / गुरुवार','Friday / शुक्रवार','Saturday / शनिवार','Sunday / रविवार'];
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+
+  // Group clients by meeting day
+  const byDay = {};
+  days.forEach(d => { byDay[d] = []; });
+  allClients.forEach(cl => {
+    const mDay = (cl.finance_company || cl.meeting_day || '').trim();
+    if (!mDay) return;
+    if (byDay[mDay] !== undefined) { byDay[mDay].push(cl); return; }
+    const mLow = mDay.split('/')[0].trim().toLowerCase();
+    const matched = days.find(d => d.split('/')[0].trim().toLowerCase() === mLow);
+    if (matched) byDay[matched].push(cl);
+  });
+
+  let pagesHtml = '';
+
+  days.forEach(day => {
+    const clients = byDay[day];
+    if (!clients.length) return;
+
+    const dayShort = day.split('/')[0].trim();
+    const totalLoan = clients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
+    const totalOutstanding = clients.reduce((s,cl) => {
+      const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit').reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+      return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid);
+    }, 0);
+    const totalEMI = clients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/12), 0);
+    const totalPDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.balance)||0)/12), 0);
+    const totalIDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.interest_amount)||0)/12), 0);
+
+    let rows = '';
+    clients.forEach((cl, i) => {
+      const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
+      const loanAmt = parseFloat(cl.balance)||0;
+      const intAmt = parseFloat(cl.interest_amount)||0;
+      const outP = Math.max(0, loanAmt - payments.length * Math.round(loanAmt/12));
+      const outI = Math.max(0, intAmt - payments.length * Math.round(intAmt/12));
+      const pDue = Math.round(loanAmt/12);
+      const iDue = Math.round(intAmt/12);
+      const emi = pDue + iDue;
+      const bg = i%2===0 ? '#fff' : '#f9f9f9';
+      rows += `<tr style="background:${bg}">
+        <td>${cl.loan_id||cl.customer_id||'-'}</td>
+        <td style="text-align:left">${cl.name}<br><span style="font-size:7px;color:#666">W/O ${cl.husband_wife_name||cl.guarantor_name||'-'} / ${cl.phone||'-'}</span></td>
+        <td>${fmt(loanAmt)}</td>
+        <td>${cl.loan_date||cl.first_emi_date||'-'}</td>
+        <td>${payments.length}</td>
+        <td style="color:red">${fmt(outP)}/${fmt(outI)}</td>
+        <td>0</td>
+        <td>${fmt(pDue)}</td>
+        <td>${fmt(iDue)}</td>
+        <td></td>
+        <td style="color:green;font-weight:bold">${fmt(emi)}</td>
+        <td style="min-width:50px"></td>
+      </tr>`;
+    });
+
+    pagesHtml += `
+    <div class="page">
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
+        <div style="font-size:16px;font-weight:bold">संकट मोचन FINANCE</div>
+        <div style="font-size:10px">शाखा कार्यालय: बलिया</div>
+      </div>
+      <table class="info-table">
+        <tr>
+          <td style="width:33%">${clients[0]?.center_name||''} / ${clients[0]?.center_code||''}</td>
+          <td style="width:34%;text-align:center"><b>${day}</b></td>
+          <td style="width:33%">${dayShort.toUpperCase()}</td>
+        </tr>
+        <tr>
+          <td>CDS Date: <b>${todayStr}</b></td>
+          <td style="text-align:center">Day: <b>${dayShort}</b></td>
+          <td>Time: <b>9:00 AM</b></td>
+        </tr>
+        <tr>
+          <td>L.C.: <b>${clients[0]?.loan_cycle||'-'}</b></td>
+          <td style="text-align:center">Members: <b>${clients.length}</b></td>
+          <td>T.Outstanding: <b style="color:red">₹${fmt(totalOutstanding)}</b></td>
+        </tr>
+        <tr>
+          <td>Center ID: <b>${clients[0]?.center_code||'-'}</b></td>
+          <td>Receipt No:</td>
+          <td>Staff: <b>${currentProfile?.name||'Admin'}</b></td>
+        </tr>
+        <tr>
+          <td>NPA: <b>0</b></td>
+          <td colspan="2">Remarks:</td>
+        </tr>
+      </table>
+
+      <div style="text-align:center;font-weight:bold;font-size:12px;padding:4px;background:#f0f0f0;border:1px solid #000;margin:4px 0">CENTER CDS</div>
+
+      <table class="cds-table">
+        <thead>
+          <tr>
+            <th>LOAN NO.</th>
+            <th>CLIENT NAME</th>
+            <th>LOAN AMT</th>
+            <th>DB DATE</th>
+            <th>INS.NO</th>
+            <th>OS (P/I)</th>
+            <th>NPA</th>
+            <th>P.DUE</th>
+            <th>INT.DUE</th>
+            <th>CRM</th>
+            <th>COLTD</th>
+            <th>SIGN.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr style="font-weight:bold;background:#f0f4f8;border-top:2px solid #000">
+            <td colspan="2">Total</td>
+            <td>${fmt(totalLoan)}</td>
+            <td colspan="2"></td>
+            <td style="color:red">${fmt(totalOutstanding)}</td>
+            <td>0</td>
+            <td>${fmt(totalPDue)}</td>
+            <td>${fmt(totalIDue)}</td>
+            <td></td>
+            <td style="color:green;font-weight:bold">${fmt(totalEMI)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:8px">
+        <div style="font-weight:bold;font-size:10px;font-style:italic">Denomination:</div>
+        <table class="denom-table">
+          <tr>
+            <td>2000 X.</td><td>500 X.</td><td>200 X.</td><td>100 X.</td>
+            <td>50 X.</td><td>20 X.</td><td>10 X.</td><td>Coins.</td><td>Total</td>
+          </tr>
+          <tr>
+            <td style="height:20px"></td><td></td><td></td><td></td>
+            <td></td><td></td><td></td><td></td>
+            <td style="font-weight:bold;color:green">₹${fmt(totalEMI)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <table style="width:100%;margin-top:12px;border:none">
+        <tr>
+          <td style="text-align:center;border-top:1px solid #000;padding-top:4px;width:33%;border-right:none">Signature of FO</td>
+          <td style="text-align:center;border-top:1px solid #000;padding-top:4px;width:34%;border-right:none">Signature of Group Leader</td>
+          <td style="text-align:center;border-top:1px solid #000;padding-top:4px;width:33%">Signature of Branch Manager</td>
+        </tr>
+      </table>
+    </div>`;
+  });
+
+  if (!pagesHtml) { showToast('कोई meeting scheduled नहीं!', 'error'); return; }
+
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>CDS - Sankat Mochan Finance</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; font-size: 9px; color: #000; }
+  .page { 
+    width: 277mm; 
+    padding: 5mm; 
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+  .page:last-child { page-break-after: auto; }
+  .info-table { width:100%; border-collapse:collapse; margin-bottom:4px; }
+  .info-table td { border:1px solid #000; padding:3px 5px; font-size:9px; }
+  .cds-table { width:100%; border-collapse:collapse; margin-bottom:6px; }
+  .cds-table th { 
+    background:#1a2e4a; color:white; 
+    padding:3px 4px; border:1px solid #444; 
+    font-size:8px; white-space:nowrap;
+  }
+  .cds-table td { 
+    border:1px solid #ccc; padding:3px 4px; 
+    font-size:8px; text-align:right;
+  }
+  .cds-table td:nth-child(2) { text-align:left; }
+  .cds-table td:nth-child(1) { text-align:left; }
+  .denom-table { width:100%; border-collapse:collapse; }
+  .denom-table td { border:1px solid #ccc; padding:3px; font-size:8px; text-align:center; }
+  @page { size: A4 landscape; margin: 5mm; }
+  @media print {
+    .page { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+${pagesHtml}
+<script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`);
+  printWin.document.close();
 }
 
 
