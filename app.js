@@ -427,6 +427,16 @@ function openAddClient() {
   document.getElementById('photo-initial').textContent = '?';
   // Reset OTP
   otpVerified = false; generatedOTP = null;
+  aadhaarBackPhotoFile = null;
+  // Reset aadhaar previews
+  const aFront = document.getElementById('aadhaar-front-img');
+  const aBack = document.getElementById('aadhaar-back-img');
+  if (aFront) { aFront.style.display = 'none'; aFront.src = ''; }
+  if (aBack) { aBack.style.display = 'none'; aBack.src = ''; }
+  const aFrontTxt = document.getElementById('aadhaar-front-text');
+  const aBackTxt = document.getElementById('aadhaar-back-text');
+  if (aFrontTxt) aFrontTxt.style.display = 'block';
+  if (aBackTxt) aBackTxt.style.display = 'block';
   const otpBtn = document.getElementById('otp-send-btn');
   if (otpBtn) { otpBtn.textContent = '📲 Send OTP on WhatsApp / SMS / Call'; otpBtn.style.background = 'var(--navy)'; }
   const otpSec = document.getElementById('otp-section');
@@ -531,6 +541,44 @@ let otpVerified = false;
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
+
+// Direct SMS OTP function
+function sendOTPviaSMS() {
+  const phone = v('f-phone');
+  const name = v('f-name');
+  if (!phone) { showToast('Phone number डालें!', 'error'); return; }
+  if (!name) { showToast('Name डालें!', 'error'); return; }
+
+  // Generate OTP
+  generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
+  otpClientPhone = phone;
+  otpVerified = false;
+  sessionStorage.setItem('client_otp', generatedOTP);
+  sessionStorage.setItem('otp_time', Date.now().toString());
+
+  // Format phone
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const indiaPhone = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
+
+  // SMS message
+  const msg = 'Sankat Mochan Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
+
+  // Open SMS app directly
+  window.open('sms:+' + indiaPhone + '?body=' + encodeURIComponent(msg), '_blank');
+
+  // Show OTP on screen too
+  const otpSec = document.getElementById('otp-section');
+  if (otpSec) otpSec.style.display = 'block';
+  
+  const btn = document.getElementById('otp-send-btn');
+  if (btn) {
+    btn.textContent = '✅ OTP Sent! Resend करें';
+    btn.style.background = '#22c55e';
+  }
+
+  showToast('SMS app खुला! OTP: ' + generatedOTP, 'success');
+}
+
 
 function sendClientOTP() {
   const phone = v('f-phone');
@@ -679,7 +727,7 @@ let aadhaarPhotoFile = null, panPhotoFile = null;
 async function handleDocPhoto(input, type) {
   if (!input.files[0]) return;
   const origSize = Math.round(input.files[0].size / 1024);
-  showToast(`Compressing ${type} ${origSize}KB...`, '');
+  showToast(`Compressing ${origSize}KB...`, '');
 
   try {
     const compressed = await compressImage(input.files[0], 50);
@@ -687,16 +735,29 @@ async function handleDocPhoto(input, type) {
 
     const reader = new FileReader();
     reader.onload = e => {
-      const previewImg = document.getElementById(type + '-preview-img');
-      const previewText = document.getElementById(type + '-preview-text');
-      if (previewImg) { previewImg.src = e.target.result; previewImg.style.display = 'block'; }
-      if (previewText) previewText.style.display = 'none';
-      showToast(`${type.toUpperCase()} ready! ${origSize}KB → ${newSize}KB ✅`, 'success');
+      // Handle different preview IDs
+      if (type === 'aadhaar-front') {
+        const img = document.getElementById('aadhaar-front-img');
+        const txt = document.getElementById('aadhaar-front-text');
+        if (img) { img.src = e.target.result; img.style.display = 'block'; }
+        if (txt) txt.style.display = 'none';
+        aadhaarPhotoFile = compressed;
+      } else if (type === 'aadhaar-back') {
+        const img = document.getElementById('aadhaar-back-img');
+        const txt = document.getElementById('aadhaar-back-text');
+        if (img) { img.src = e.target.result; img.style.display = 'block'; }
+        if (txt) txt.style.display = 'none';
+        aadhaarBackPhotoFile = compressed;
+      } else if (type === 'pan') {
+        const img = document.getElementById('pan-preview-img');
+        const txt = document.getElementById('pan-preview-text');
+        if (img) { img.src = e.target.result; img.style.display = 'block'; }
+        if (txt) txt.style.display = 'none';
+        panPhotoFile = compressed;
+      }
+      showToast(`✅ ${origSize}KB → ${newSize}KB`, 'success');
     };
     reader.readAsDataURL(compressed);
-
-    if (type === 'aadhaar') aadhaarPhotoFile = compressed;
-    else panPhotoFile = compressed;
   } catch(e) {
     showToast('Photo error! Try again', 'error');
   }
