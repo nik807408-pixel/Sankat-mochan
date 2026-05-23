@@ -464,8 +464,8 @@
     <div class="form-section">
       <div class="form-section-title">🏘️ Center Details / सेंटर जानकारी</div>
       <div class="field-row">
-        <div class="field"><label>Center Name / सेंटर नाम</label><input id="f-center-name" placeholder="सेंटर का नाम"/></div>
-        <div class="field"><label>Center Code / सेंटर कोड</label><input id="f-center-code" placeholder="e.g. CTR-001"/></div>
+        <div class="field"><label>Center Name / सेंटर नाम</label><input id="f-center-name" placeholder="सेंटर का नाम" oninput="autoGenCenterCode(this.value)"/></div>
+        <div class="field"><label>Center Code / सेंटर कोड</label><input id="f-center-code" placeholder="Auto from name / CTR-001"/></div>
       </div>
       <div class="field"><label>Center Leader Name / सेंटर लीडर</label><input id="f-center-leader" placeholder="सेंटर लीडर का नाम"/></div>
 
