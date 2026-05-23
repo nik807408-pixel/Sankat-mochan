@@ -2292,7 +2292,7 @@ function sendWhatsAppReminder(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number / फोन नंबर नहीं है', 'error'); return; }
 
-  const payments = allPayments.filter(p => p.client_id === clientId && p.type === 'credit');
+  const payments = allPayments.filter(p => p.client_id === clientId && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))));
   const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
   const pending = (parseFloat(c.balance) || 0) - totalPaid;
 
@@ -2560,7 +2560,7 @@ function showClientPassbook(clientId) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
-  const payments = allPayments.filter(p => p.client_id === clientId && p.type === 'credit')
+  const payments = allPayments.filter(p => p.client_id === clientId && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))))
     .sort((a,b) => new Date(a.date) - new Date(b.date));
 
   const loan = parseFloat(cl.balance) || 0;
@@ -2638,25 +2638,41 @@ function showClientPassbook(clientId) {
             let runningOutstanding = totalLoanPlusInterest;
             
             payments.forEach((p, i) => {
-              weekNum++;
-              const received = parseFloat(p.amount) || weeklyEMI;
-              // Outstanding reduces by EMI each week
-              runningOutstanding = Math.max(0, runningOutstanding - weeklyEMI);
-              outstanding = runningOutstanding;
-              
-              rows.push(`
+              const isReversal = p.type === 'debit' && (p.description||'').includes('Reversal');
+              const amount = parseFloat(p.amount) || 0;
+
+              if (isReversal) {
+                // Reversal: outstanding WAPAS BADHE
+                runningOutstanding = Math.min(totalLoanPlusInterest, runningOutstanding + amount);
+                rows.push(`
+                <tr style="background:#fff5f5;border-bottom:1px solid var(--border)">
+                  <td style="padding:6px 8px;text-align:center;color:var(--muted);border-right:1px solid var(--border)">${p.date||'—'}</td>
+                  <td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--danger);border-right:1px solid var(--border)">↩️</td>
+                  <td style="padding:6px 8px;text-align:center;color:var(--danger);border-right:1px solid var(--border)" colspan="3">↩️ Reversal Entry</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">-₹${fmt(amount)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
+                  <td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border)">❌</td>
+                  <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
+                  <td style="padding:6px 8px;font-size:10px;color:var(--muted)">${p.description||''}</td>
+                </tr>`);
+              } else {
+                // Normal credit payment
+                weekNum++;
+                runningOutstanding = Math.max(0, runningOutstanding - amount);
+                rows.push(`
                 <tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
                   <td style="padding:6px 8px;text-align:center;color:var(--muted);border-right:1px solid var(--border)">${p.date||'—'}</td>
                   <td style="padding:6px 8px;text-align:center;font-weight:700;border-right:1px solid var(--border)">${weekNum}</td>
                   <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyPrincipal)}</td>
                   <td style="padding:6px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
                   <td style="padding:6px 8px;text-align:right;font-weight:600;border-right:1px solid var(--border)">₹${fmt(totalDuePerWeek)}</td>
-                  <td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;border-right:1px solid var(--border)">₹${fmt(received)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--success);font-weight:700;border-right:1px solid var(--border)">₹${fmt(amount)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
                   <td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border)">✅</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px">${p.description||''}</td>
                 </tr>`);
+              }
             });
 
             // Show remaining empty rows
@@ -2684,8 +2700,8 @@ function showClientPassbook(clientId) {
         <tfoot>
           <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--navy)">
             <td colspan="5" style="padding:8px 10px;color:var(--navy)">कुल / Total</td>
-            <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</td>
-            <td style="padding:8px 10px;text-align:right;color:var(--danger)">₹${fmt(Math.max(0,(loan+interest)-payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0)))}</td>
+            <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(payments.filter(p=>p.type==='credit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</td>
+            <td style="padding:8px 10px;text-align:right;color:var(--danger)">₹${fmt(Math.max(0,(loan+interest)-payments.filter(p=>p.type==='credit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0)+payments.filter(p=>p.type==='debit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0)))}</td>
             <td colspan="3"></td>
           </tr>
         </tfoot>
