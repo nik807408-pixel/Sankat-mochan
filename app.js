@@ -468,6 +468,7 @@ function openEditClient(c) {
   if (document.getElementById('f-marital')) document.getElementById('f-marital').value = c.marital_status || 'unmarried';
   if (document.getElementById('f-meeting-day')) document.getElementById('f-meeting-day').value = c.meeting_day || '';
   if (document.getElementById('f-loan-cycle')) document.getElementById('f-loan-cycle').value = c.loan_cycle || '1st';
+  if (document.getElementById('f-loan-weeks')) document.getElementById('f-loan-weeks').value = c.loan_weeks || '12';
   if (document.getElementById('f-loan-purpose')) document.getElementById('f-loan-purpose').value = c.loan_purpose || '';
 
   // Photo
@@ -880,6 +881,7 @@ async function saveClient() {
     center_leader: v('f-center-leader'),
     meeting_day: document.getElementById('f-meeting-day')?.value || '',
     loan_cycle: document.getElementById('f-loan-cycle')?.value || '1st',
+    loan_weeks: parseInt(document.getElementById('f-loan-weeks')?.value || '12'),
     loan_purpose: document.getElementById('f-loan-purpose')?.value || '',
     age: parseInt(v('f-age')) || null,
     member_no: v('f-member-no'),
@@ -1052,6 +1054,10 @@ async function openDetail(id) {
           <div class="pay-amount" style="color:${p.type==='credit'?'var(--success)':'var(--danger)'}">
             ${p.type==='credit'?'+':'-'}₹${fmt(parseFloat(p.amount)||0)}
           </div>
+          ${currentProfile?.role === 'admin' ? `
+          <button onclick="reversePayment('${p.id}','${p.amount}','${p.type}')" 
+            style="margin-left:6px;padding:4px 8px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#856404;white-space:nowrap"
+            title="Reverse this payment">↩️ Reverse</button>` : ''}
         </div>`).join('') : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:10px">No payments yet</div>'}
       <button class="pay-add-btn" onclick="openPayModal()">+ Add Payment / भुगतान जोड़ें</button>
     </div>
@@ -1120,15 +1126,20 @@ function renderInvoicesPage(c) {
       <div style="font-size:12px;color:var(--muted)">EMI, Passbook & Meeting Day</div>
     </div>
 
-    <!-- Tabs -->
-    <div class="tabs no-print" style="margin-bottom:16px">
-      <button class="tab ${moreTab==='emi'?'active':''}" onclick="switchMoreTab('emi',this)" style="flex:1">📅 EMI Tracker</button>
+    <!-- Tabs Row 1 -->
+    <div class="tabs no-print" style="margin-bottom:6px">
+      <button class="tab ${moreTab==='emi'?'active':''}" onclick="switchMoreTab('emi',this)" style="flex:1">📅 EMI</button>
       <button class="tab ${moreTab==='passbook'?'active':''}" onclick="switchMoreTab('passbook',this)" style="flex:1">📒 Passbook</button>
       <button class="tab ${moreTab==='meeting'?'active':''}" onclick="switchMoreTab('meeting',this)" style="flex:1">🏘️ Meeting</button>
     </div>
+    <!-- Tabs Row 2 -->
+    <div class="tabs no-print" style="margin-bottom:16px">
+      <button class="tab ${moreTab==='cashbook'?'active':''}" onclick="switchMoreTab('cashbook',this)" style="flex:1">🧾 Cash Book</button>
+      <button class="tab ${moreTab==='collreg'?'active':''}" onclick="switchMoreTab('collreg',this)" style="flex:1">📋 Collection Reg</button>
+    </div>
 
     <div id="more-content">
-      ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : renderMeetingTab()}
+      ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : renderMeetingTab()}
     </div>
   `;
 }
@@ -1138,7 +1149,7 @@ function switchMoreTab(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   const c = document.getElementById('more-content');
-  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : renderMeetingTab();
+  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : renderMeetingTab();
 }
 
 // ── EMI TAB ───────────────────────────────
@@ -1313,6 +1324,394 @@ function renderPassbookTab() {
   return html;
 }
 
+
+// ── CASH BOOK ──────────────────────────────────────────────────────────────
+function renderCashBookTab() {
+  const today = new Date().toISOString().slice(0,10);
+  // Auto-fill opening balance from allPayments
+  const totalCredit = allPayments.filter(p=>p.type==='credit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+  const totalDebit  = allPayments.filter(p=>p.type==='debit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+  return `
+  <div id="cashbook-wrap">
+    <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--navy)">🧾 Cash Book</div>
+        <div style="font-size:11px;color:var(--muted)">रोज़ाना नकद बही</div>
+      </div>
+      <button onclick="printCashBook()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+    </div>
+
+    <!-- Header -->
+    <div id="cashbook-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
+      <div style="text-align:center;font-size:16px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:10px">
+        संकट मोचन Finance — Cash Book / नकद बही
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:10px;font-size:12px">
+        <div style="flex:1">
+          <label style="font-weight:700;color:var(--muted)">Day / दिन</label>
+          <input id="cb-day" type="text" placeholder="e.g. Monday" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;margin-top:2px">
+        </div>
+        <div style="flex:1">
+          <label style="font-weight:700;color:var(--muted)">Date / तारीख</label>
+          <input id="cb-date" type="date" value="${today}" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;margin-top:2px">
+        </div>
+      </div>
+
+      <!-- Receipt + Payment table -->
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px">
+        <thead>
+          <tr style="background:var(--navy);color:white">
+            <th style="padding:7px;border:1px solid #ccc;text-align:left">Receipts / आय</th>
+            <th style="padding:7px;border:1px solid #ccc;text-align:right">Amount ₹</th>
+            <th style="padding:7px;border:1px solid #ccc;text-align:left">Payments / व्यय</th>
+            <th style="padding:7px;border:1px solid #ccc;text-align:right">Amount ₹</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:6px;border:1px solid #ddd">Opening / शेष</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-opening" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+            <td style="padding:6px;border:1px solid #ddd">Disbursement / वितरण</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-disb" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+          </tr>
+          <tr>
+            <td style="padding:6px;border:1px solid #ddd">Collection / संग्रह</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-coll" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+            <td style="padding:6px;border:1px solid #ddd">Bank Deposit / बैंक</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-bank" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+          </tr>
+          <tr>
+            <td style="padding:6px;border:1px solid #ddd">LPF</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-lpf" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+            <td style="padding:6px;border:1px solid #ddd">Expense 1 / व्यय</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-exp1" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+          </tr>
+          <tr>
+            <td style="padding:6px;border:1px solid #ddd">LPC</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-lpc" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+            <td style="padding:6px;border:1px solid #ddd">Expense 2 / व्यय</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-exp2" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+          </tr>
+          <tr>
+            <td style="padding:6px;border:1px solid #ddd">Prepayment / अग्रिम</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-prepay" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+            <td style="padding:6px;border:1px solid #ddd">Expense 3 / व्यय</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-exp3" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+          </tr>
+          <tr>
+            <td style="padding:6px;border:1px solid #ddd">Over Due / बकाया</td>
+            <td style="border:1px solid #ddd;padding:4px"><input id="cb-od" type="number" placeholder="0" oninput="calcCashBook()" style="width:100%;border:none;font-size:12px;text-align:right;outline:none"></td>
+            <td style="padding:6px;border:1px solid #ddd;color:var(--muted)"></td>
+            <td style="border:1px solid #ddd"></td>
+          </tr>
+          <tr style="background:#f0f4f8;font-weight:700">
+            <td style="padding:7px;border:1px solid #ccc">Total / कुल</td>
+            <td id="cb-total-receipt" style="padding:7px;border:1px solid #ccc;text-align:right;color:var(--success)">₹0.00</td>
+            <td style="padding:7px;border:1px solid #ccc">Total / कुल</td>
+            <td id="cb-total-payment" style="padding:7px;border:1px solid #ccc;text-align:right;color:var(--danger)">₹0.00</td>
+          </tr>
+          <tr style="background:#e8f5e9;font-weight:800">
+            <td colspan="2" style="padding:7px;border:1px solid #ccc;text-align:center;color:var(--navy)">Closing Balance / समापन शेष</td>
+            <td colspan="2" id="cb-closing" style="padding:7px;border:1px solid #ccc;text-align:center;font-size:14px;color:var(--navy)">₹0.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Currency Denomination -->
+      <div style="font-weight:700;font-size:12px;color:var(--navy);margin-bottom:6px">💵 Currency Denomination / नोट गणना</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px">
+        <thead>
+          <tr style="background:#f0f4f8">
+            <th style="padding:5px;border:1px solid #ddd">Note</th>
+            <th style="padding:5px;border:1px solid #ddd">Count / संख्या</th>
+            <th style="padding:5px;border:1px solid #ddd">Amount ₹</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[2000,500,200,100,50,20,10].map(d=>`
+          <tr>
+            <td style="padding:5px;border:1px solid #ddd;text-align:center;font-weight:700">₹${d}</td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" id="denom-${d}" placeholder="0" oninput="calcDenom()" min="0" style="width:100%;border:none;font-size:11px;text-align:center;outline:none"></td>
+            <td id="denom-amt-${d}" style="padding:5px;border:1px solid #ddd;text-align:right;color:var(--muted)">₹0</td>
+          </tr>`).join('')}
+          <tr>
+            <td style="padding:5px;border:1px solid #ddd;text-align:center;font-weight:700">Coin / सिक्का</td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" id="denom-coin" placeholder="0" oninput="calcDenom()" min="0" style="width:100%;border:none;font-size:11px;text-align:center;outline:none"></td>
+            <td id="denom-amt-coin" style="padding:5px;border:1px solid #ddd;text-align:right;color:var(--muted)">₹0</td>
+          </tr>
+          <tr style="background:#f0f4f8;font-weight:700">
+            <td colspan="2" style="padding:6px;border:1px solid #ccc;text-align:center">Denomination Total / कुल</td>
+            <td id="denom-total" style="padding:6px;border:1px solid #ccc;text-align:right;color:var(--navy)">₹0</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Signatures -->
+      <div style="display:flex;justify-content:space-between;margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="text-align:center;font-size:11px;color:var(--muted)">
+          <div style="height:30px;border-bottom:1px solid #999;width:100px;margin:0 auto 4px"></div>
+          B.M. Signature
+        </div>
+        <div style="text-align:center;font-size:11px;color:var(--muted)">
+          <div style="height:30px;border-bottom:1px solid #999;width:100px;margin:0 auto 4px"></div>
+          Cashier Signature
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function autoGenCenterCode(name) {
+  const codeEl = document.getElementById('f-center-code');
+  if (!codeEl || codeEl.dataset.manual === 'true') return;
+  // Take first 3 letters of each word, uppercase, join with hyphen, add number
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) { codeEl.value = ''; return; }
+  const abbr = words.map(w => w.slice(0,3).toUpperCase()).join('-');
+  // Count existing centers with same name prefix for unique number
+  const existing = allClients.filter(c => (c.center_name||'').toLowerCase() === name.trim().toLowerCase());
+  const num = String(existing.length > 0 ? existing[0].center_code?.split('-').pop() || '001' : '001');
+  codeEl.value = abbr + '-' + num.padStart(3,'0');
+}
+
+// If user manually edits center code, stop auto-overwriting
+document.addEventListener('input', e => {
+  if (e.target.id === 'f-center-code') e.target.dataset.manual = 'true';
+  if (e.target.id === 'f-center-name') e.target.nextElementSibling?.querySelector('#f-center-code') && (document.getElementById('f-center-code').dataset.manual = 'false');
+});
+
+
+  const v = id => parseFloat(document.getElementById(id)?.value||0)||0;
+  const totalReceipt = v('cb-opening') + v('cb-coll') + v('cb-lpf') + v('cb-lpc') + v('cb-prepay') + v('cb-od');
+  const totalPayment = v('cb-disb') + v('cb-bank') + v('cb-exp1') + v('cb-exp2') + v('cb-exp3');
+  const closing = totalReceipt - totalPayment;
+  const el = id => document.getElementById(id);
+  if(el('cb-total-receipt')) el('cb-total-receipt').textContent = '₹'+fmt(totalReceipt);
+  if(el('cb-total-payment')) el('cb-total-payment').textContent = '₹'+fmt(totalPayment);
+  if(el('cb-closing')) {
+    el('cb-closing').textContent = '₹'+fmt(closing);
+    el('cb-closing').style.color = closing >= 0 ? 'var(--success)' : 'var(--danger)';
+  }
+}
+
+function calcDenom() {
+  const denoms = [2000,500,200,100,50,20,10];
+  let total = 0;
+  denoms.forEach(d => {
+    const cnt = parseInt(document.getElementById('denom-'+d)?.value||0)||0;
+    const amt = cnt * d;
+    total += amt;
+    const el = document.getElementById('denom-amt-'+d);
+    if(el) el.textContent = '₹'+amt.toLocaleString('en-IN');
+  });
+  const coin = parseFloat(document.getElementById('denom-coin')?.value||0)||0;
+  total += coin;
+  const elCoin = document.getElementById('denom-amt-coin');
+  if(elCoin) elCoin.textContent = '₹'+coin.toLocaleString('en-IN');
+  const elTotal = document.getElementById('denom-total');
+  if(elTotal) elTotal.textContent = '₹'+total.toLocaleString('en-IN');
+}
+
+function printCashBook() {
+  const day = document.getElementById('cb-day')?.value || '';
+  const date = document.getElementById('cb-date')?.value || '';
+  const area = document.getElementById('cashbook-print-area');
+  if(!area) return;
+  const html = `<!DOCTYPE html><html><head><title>Cash Book - ${date}</title>
+  <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
+  input{border:none;width:100%;text-align:right;font-size:12px}
+  @media print{@page{margin:10mm}}</style></head><body>
+  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
+  <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
+  ${area.innerHTML}</body></html>`;
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.print();
+}
+
+// ── COLLECTION REGISTER ────────────────────────────────────────────────────
+function renderCollectionRegTab() {
+  // Build center-wise data from allClients + allPayments
+  const centerMap = {};
+  allClients.forEach(c => {
+    const key = c.center_name || 'Unknown';
+    if(!centerMap[key]) centerMap[key] = { name: key, clients: 0, due: 0, pre: 0, od: 0, lpf: 0, lpc: 0 };
+    const weeks = parseInt(c.loan_weeks) || 12;
+    const loan  = parseFloat(c.balance) || 0;
+    const intr  = parseFloat(c.interest_amount) || 0;
+    centerMap[key].due += Math.round((loan + intr) / weeks);   // Weekly EMI due
+    centerMap[key].clients++;
+  });
+
+  // Fill Pre / OD / LPF / LPC from today's payments by description keyword
+  const today = new Date().toISOString().slice(0,10);
+  allPayments.filter(p => p.type === 'credit').forEach(p => {
+    const cl = allClients.find(c => c.id === p.client_id);
+    if(!cl) return;
+    const key = cl.center_name || 'Unknown';
+    if(!centerMap[key]) return;
+    const amt = parseFloat(p.amount) || 0;
+    const desc = (p.description || '').toLowerCase();
+    if(desc.includes('lpf'))                          centerMap[key].lpf += amt;
+    else if(desc.includes('lpc'))                     centerMap[key].lpc += amt;
+    else if(desc.includes('overdue')||desc.includes('od')||desc.includes('over due')) centerMap[key].od += amt;
+    else if(desc.includes('pre')||desc.includes('advance')||desc.includes('prepay'))  centerMap[key].pre += amt;
+  });
+  const centers = Object.values(centerMap);
+  const today = new Date().toISOString().slice(0,10);
+
+  return `
+  <div id="collreg-wrap">
+    <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--navy)">📋 Collection Register</div>
+        <div style="font-size:11px;color:var(--muted)">Center-wise Collection / केंद्रवार संग्रह</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input type="date" id="cr-date" value="${today}" style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px">
+        <button onclick="printCollReg()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+      </div>
+    </div>
+
+    <div id="collreg-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08);overflow-x:auto">
+      <div style="text-align:center;font-size:15px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:4px">
+        Collection Register / संग्रह रजिस्टर
+      </div>
+      <div style="text-align:right;font-size:11px;color:var(--muted);margin-bottom:8px">
+        Date / तारीख: <span id="cr-date-display">${today}</span>
+      </div>
+
+      <table id="cr-table" style="width:100%;border-collapse:collapse;font-size:11px;min-width:620px">
+        <thead>
+          <tr style="background:var(--navy);color:white">
+            <th style="padding:7px;border:1px solid #555;text-align:left;white-space:nowrap">Centre Name<br>केंद्र का नाम</th>
+            <th style="padding:7px;border:1px solid #555;text-align:right;white-space:nowrap">Due Collection<br>देय संग्रह</th>
+            <th style="padding:7px;border:1px solid #555;text-align:right;white-space:nowrap">Pre Collection<br>अग्रिम</th>
+            <th style="padding:7px;border:1px solid #555;text-align:right;white-space:nowrap">Over Due<br>बकाया</th>
+            <th style="padding:7px;border:1px solid #555;text-align:right;white-space:nowrap">LPF</th>
+            <th style="padding:7px;border:1px solid #555;text-align:right;white-space:nowrap">LPC</th>
+            <th style="padding:7px;border:1px solid #555;text-align:right;white-space:nowrap">Total<br>कुल</th>
+            <th style="padding:7px;border:1px solid #555;text-align:center;white-space:nowrap">Cashier<br>Sign</th>
+            <th style="padding:7px;border:1px solid #555;text-align:center;white-space:nowrap">CM<br>Sign</th>
+            <th style="padding:7px;border:1px solid #555;text-align:center;white-space:nowrap">BM<br>Sign</th>
+            <th style="padding:7px;border:1px solid #555;text-align:center;white-space:nowrap">Remark</th>
+          </tr>
+        </thead>
+        <tbody id="cr-tbody">
+          ${centers.length ? centers.map((ct,i)=>`
+          <tr style="${i%2===0?'background:#fafafa':'background:white'}">
+            <td style="padding:6px;border:1px solid #ddd;font-weight:600">${ct.name}<br><span style="font-size:9px;color:var(--muted)">${ct.clients} clients</span></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="due" value="${ct.due||''}" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="pre" value="${ct.pre||''}" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="od" value="${ct.od||''}" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="lpf" value="${ct.lpf||''}" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="lpc" value="${ct.lpc||''}" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td id="cr-total-${i}" style="padding:6px;border:1px solid #ddd;text-align:right;font-weight:700;color:var(--success)">${((ct.due||0)+(ct.pre||0)+(ct.od||0)+(ct.lpf||0)+(ct.lpc||0)).toLocaleString('en-IN')}</td>
+            <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted);font-size:13px">—</td>
+            <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted);font-size:13px">—</td>
+            <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted);font-size:13px">—</td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="text" placeholder="रिमार्क" style="width:80px;border:none;font-size:10px;outline:none"></td>
+          </tr>`).join('') :
+          `<tr><td colspan="11" style="padding:16px;text-align:center;color:var(--muted);border:1px solid #ddd">No centers found. Add clients with center names first.</td></tr>`
+          }
+          <!-- Add blank row button -->
+          <tr id="cr-add-row">
+            <td colspan="11" style="padding:6px;border:1px solid #ddd;text-align:center">
+              <button onclick="addCRRow()" style="background:none;border:1px dashed var(--border);border-radius:6px;padding:4px 12px;font-size:11px;cursor:pointer;color:var(--muted)">+ Add Row / पंक्ति जोड़ें</button>
+            </td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr style="background:#e8f5e9;font-weight:800">
+            <td style="padding:7px;border:1px solid #ccc;font-size:12px">Grand Total / कुल योग</td>
+            <td id="cr-gt-due" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.due||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-pre" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.pre||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-od" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.od||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-lpf" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.lpf||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-lpc" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.lpc||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-total" style="padding:7px;border:1px solid #ccc;text-align:right;color:var(--navy)">${centers.reduce((s,c)=>s+(c.due||0)+(c.pre||0)+(c.od||0)+(c.lpf||0)+(c.lpc||0),0).toLocaleString('en-IN')}</td>
+            <td colspan="4" style="border:1px solid #ccc"></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Signatures -->
+      <div style="display:flex;justify-content:space-around;margin-top:16px;padding-top:10px;border-top:1px solid var(--border)">
+        ${['B.M. Signature','Cashier Signature','CM Signature'].map(s=>`
+        <div style="text-align:center;font-size:11px;color:var(--muted)">
+          <div style="height:28px;border-bottom:1px solid #999;width:90px;margin:0 auto 4px"></div>
+          ${s}
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+let crRowCount = 0;
+function addCRRow() {
+  crRowCount++;
+  const tbody = document.getElementById('cr-tbody');
+  const addRow = document.getElementById('cr-add-row');
+  const idx = 'extra-'+crRowCount;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="border:1px solid #ddd;padding:3px"><input type="text" placeholder="Centre Name" style="width:100%;border:none;font-size:11px;outline:none"></td>
+    <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${idx}" data-col="due" placeholder="0" oninput="calcCR('${idx}')" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
+    <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${idx}" data-col="pre" placeholder="0" oninput="calcCR('${idx}')" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
+    <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${idx}" data-col="od" placeholder="0" oninput="calcCR('${idx}')" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+    <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${idx}" data-col="lpf" placeholder="0" oninput="calcCR('${idx}')" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+    <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${idx}" data-col="lpc" placeholder="0" oninput="calcCR('${idx}')" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+    <td id="cr-total-${idx}" style="padding:6px;border:1px solid #ddd;text-align:right;font-weight:700;color:var(--success)">0</td>
+    <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted)">—</td>
+    <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted)">—</td>
+    <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted)">—</td>
+    <td style="border:1px solid #ddd;padding:3px"><input type="text" placeholder="रिमार्क" style="width:80px;border:none;font-size:10px;outline:none"></td>`;
+  tbody.insertBefore(tr, addRow);
+}
+
+function calcCR(rowIdx) {
+  const inputs = document.querySelectorAll(`[data-row="${rowIdx}"]`);
+  let total = 0;
+  inputs.forEach(inp => { total += parseFloat(inp.value||0)||0; });
+  const el = document.getElementById('cr-total-'+rowIdx);
+  if(el) el.textContent = total.toLocaleString('en-IN');
+  // Update grand totals
+  const cols = ['due','pre','od','lpf','lpc'];
+  cols.forEach(col => {
+    const allInputs = document.querySelectorAll(`[data-col="${col}"]`);
+    let sum = 0;
+    allInputs.forEach(inp => { sum += parseFloat(inp.value||0)||0; });
+    const gt = document.getElementById('cr-gt-'+col);
+    if(gt) gt.textContent = sum.toLocaleString('en-IN');
+  });
+  // Grand total of totals
+  const totCells = document.querySelectorAll('[id^="cr-total-"]');
+  let grandTotal = 0;
+  totCells.forEach(cell => { grandTotal += parseFloat(cell.textContent.replace(/,/g,''))||0; });
+  const gtTotal = document.getElementById('cr-gt-total');
+  if(gtTotal) gtTotal.textContent = grandTotal.toLocaleString('en-IN');
+}
+
+function printCollReg() {
+  const date = document.getElementById('cr-date')?.value || '';
+  const el = document.getElementById('cr-date-display');
+  if(el) el.textContent = date;
+  const area = document.getElementById('collreg-print-area');
+  if(!area) return;
+  const html = `<!DOCTYPE html><html><head><title>Collection Register - ${date}</title>
+  <style>body{font-family:Arial,sans-serif;margin:8mm;font-size:11px}
+  table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:5px;font-size:10px}
+  th{background:#1a2e4a;color:white}input{border:none;font-size:10px;width:100%}
+  button{display:none}@media print{@page{size:landscape;margin:8mm}}</style>
+  </head><body>${area.innerHTML}</body></html>`;
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 400);
+}
 
 function renderMeetingTab() {
   const days = ['Monday / सोमवार','Tuesday / मंगलवार','Wednesday / बुधवार','Thursday / गुरुवार','Friday / शुक्रवार','Saturday / शनिवार','Sunday / रविवार'];
@@ -2162,14 +2561,15 @@ function showClientPassbook(clientId) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
-  const payments = allPayments.filter(p => p.client_id === clientId)
+  const payments = allPayments.filter(p => p.client_id === clientId && p.type === 'credit')
     .sort((a,b) => new Date(a.date) - new Date(b.date));
 
   const loan = parseFloat(cl.balance) || 0;
   const interest = parseFloat(cl.interest_amount) || 0;
-  const weeklyEMI = Math.round((loan + interest) / 12);
-  const weeklyPrincipal = Math.round(loan / 12);
-  const weeklyInterest = Math.round(interest / 12);
+  const totalWeeks = parseInt(cl.loan_weeks) || 12;
+  const weeklyEMI = Math.round((loan + interest) / totalWeeks);
+  const weeklyPrincipal = Math.round(loan / totalWeeks);
+  const weeklyInterest = Math.round(interest / totalWeeks);
   const totalDuePerWeek = cl.emi_amount || weeklyEMI;
 
   const c = document.getElementById('main-content');
@@ -2194,7 +2594,7 @@ function showClientPassbook(clientId) {
         <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
         <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
         <div><span style="opacity:.6">Loan Cycle:</span> <strong>${cl.loan_cycle||'1st'}</strong></div>
-        <div><span style="opacity:.6">Meeting Day:</span> <strong>${cl.finance_company||cl.meeting_day||cl.bank_name||'—'}</strong></div>
+        <div><span style="opacity:.6">Tenure:</span> <strong>${totalWeeks} Weeks</strong></div>
       </div>
     </div>
 
@@ -2221,11 +2621,11 @@ function showClientPassbook(clientId) {
             let weekNum = 0;
             const rows = [];
             
-            // Fixed 12 weeks - Principal and Interest split
+            // Fixed weeks (12/16/24) - Principal and Interest split
             const totalLoanPlusInterest = loan + interest;
-            const weeklyEMI = Math.round(totalLoanPlusInterest / 12);
-            const weeklyPrincipal = Math.round(loan / 12);
-            const weeklyInterest = Math.round(interest / 12);
+            const weeklyEMI = Math.round(totalLoanPlusInterest / totalWeeks);
+            const weeklyPrincipal = Math.round(loan / totalWeeks);
+            const weeklyInterest = Math.round(interest / totalWeeks);
 
             // Auto calculate weekly dates from first EMI date
             const startDate = cl.first_emi_date || cl.loan_date || new Date().toISOString().slice(0,10);
@@ -2239,15 +2639,10 @@ function showClientPassbook(clientId) {
             let runningOutstanding = totalLoanPlusInterest;
             
             payments.forEach((p, i) => {
-              const received = parseFloat(p.amount) || 0;
-              const isReverse = p.type === 'debit';
-              if (!isReverse) {
-                weekNum++;
-                runningOutstanding = Math.max(0, runningOutstanding - weeklyEMI);
-              } else {
-                // Reverse entry - outstanding goes back up
-                runningOutstanding = Math.min(totalLoanPlusInterest, runningOutstanding + received);
-              }
+              weekNum++;
+              const received = parseFloat(p.amount) || weeklyEMI;
+              // Outstanding reduces by EMI each week
+              runningOutstanding = Math.max(0, runningOutstanding - weeklyEMI);
               outstanding = runningOutstanding;
               
               rows.push(`
@@ -2267,7 +2662,7 @@ function showClientPassbook(clientId) {
 
             // Show remaining empty rows
             let outCounter = runningOutstanding;
-            for (let i = weekNum + 1; i <= 12; i++) {
+            for (let i = weekNum + 1; i <= totalWeeks; i++) {
               outCounter = Math.max(0, outCounter - weeklyEMI);
               const outVal = outCounter;
               rows.push(`
