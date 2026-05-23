@@ -468,6 +468,7 @@ function openEditClient(c) {
   if (document.getElementById('f-marital')) document.getElementById('f-marital').value = c.marital_status || 'unmarried';
   if (document.getElementById('f-meeting-day')) document.getElementById('f-meeting-day').value = c.meeting_day || '';
   if (document.getElementById('f-loan-cycle')) document.getElementById('f-loan-cycle').value = c.loan_cycle || '1st';
+  if (document.getElementById('f-loan-weeks')) document.getElementById('f-loan-weeks').value = c.loan_weeks || '12';
   if (document.getElementById('f-loan-purpose')) document.getElementById('f-loan-purpose').value = c.loan_purpose || '';
 
   // Photo
@@ -880,6 +881,7 @@ async function saveClient() {
     center_leader: v('f-center-leader'),
     meeting_day: document.getElementById('f-meeting-day')?.value || '',
     loan_cycle: document.getElementById('f-loan-cycle')?.value || '1st',
+    loan_weeks: parseInt(document.getElementById('f-loan-weeks')?.value || '12'),
     loan_purpose: document.getElementById('f-loan-purpose')?.value || '',
     age: parseInt(v('f-age')) || null,
     member_no: v('f-member-no'),
@@ -2527,9 +2529,10 @@ function showClientPassbook(clientId) {
 
   const loan = parseFloat(cl.balance) || 0;
   const interest = parseFloat(cl.interest_amount) || 0;
-  const weeklyEMI = Math.round((loan + interest) / 12);
-  const weeklyPrincipal = Math.round(loan / 12);
-  const weeklyInterest = Math.round(interest / 12);
+  const totalWeeks = parseInt(cl.loan_weeks) || 12;
+  const weeklyEMI = Math.round((loan + interest) / totalWeeks);
+  const weeklyPrincipal = Math.round(loan / totalWeeks);
+  const weeklyInterest = Math.round(interest / totalWeeks);
   const totalDuePerWeek = cl.emi_amount || weeklyEMI;
 
   const c = document.getElementById('main-content');
@@ -2554,7 +2557,7 @@ function showClientPassbook(clientId) {
         <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
         <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
         <div><span style="opacity:.6">Loan Cycle:</span> <strong>${cl.loan_cycle||'1st'}</strong></div>
-        <div><span style="opacity:.6">Meeting Day:</span> <strong>${cl.finance_company||cl.meeting_day||cl.bank_name||'—'}</strong></div>
+        <div><span style="opacity:.6">Tenure:</span> <strong>${totalWeeks} Weeks</strong></div>
       </div>
     </div>
 
@@ -2581,11 +2584,11 @@ function showClientPassbook(clientId) {
             let weekNum = 0;
             const rows = [];
             
-            // Fixed 12 weeks - Principal and Interest split
+            // Fixed weeks (12/16/24) - Principal and Interest split
             const totalLoanPlusInterest = loan + interest;
-            const weeklyEMI = Math.round(totalLoanPlusInterest / 12);
-            const weeklyPrincipal = Math.round(loan / 12);
-            const weeklyInterest = Math.round(interest / 12);
+            const weeklyEMI = Math.round(totalLoanPlusInterest / totalWeeks);
+            const weeklyPrincipal = Math.round(loan / totalWeeks);
+            const weeklyInterest = Math.round(interest / totalWeeks);
 
             // Auto calculate weekly dates from first EMI date
             const startDate = cl.first_emi_date || cl.loan_date || new Date().toISOString().slice(0,10);
@@ -2622,7 +2625,7 @@ function showClientPassbook(clientId) {
 
             // Show remaining empty rows
             let outCounter = runningOutstanding;
-            for (let i = weekNum + 1; i <= 12; i++) {
+            for (let i = weekNum + 1; i <= totalWeeks; i++) {
               outCounter = Math.max(0, outCounter - weeklyEMI);
               const outVal = outCounter;
               rows.push(`
