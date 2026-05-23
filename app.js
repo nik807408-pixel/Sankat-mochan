@@ -1481,10 +1481,10 @@ document.addEventListener('input', e => {
   if (e.target.id === 'f-center-name') e.target.nextElementSibling?.querySelector('#f-center-code') && (document.getElementById('f-center-code').dataset.manual = 'false');
 });
 
-
-  const v = id => parseFloat(document.getElementById(id)?.value||0)||0;
-  const totalReceipt = v('cb-opening') + v('cb-coll') + v('cb-lpf') + v('cb-lpc') + v('cb-prepay') + v('cb-od');
-  const totalPayment = v('cb-disb') + v('cb-bank') + v('cb-exp1') + v('cb-exp2') + v('cb-exp3');
+function calcCashBook() {
+  const gv = id => parseFloat(document.getElementById(id)?.value||0)||0;
+  const totalReceipt = gv('cb-opening') + gv('cb-coll') + gv('cb-lpf') + gv('cb-lpc') + gv('cb-prepay') + gv('cb-od');
+  const totalPayment = gv('cb-disb') + gv('cb-bank') + gv('cb-exp1') + gv('cb-exp2') + gv('cb-exp3');
   const closing = totalReceipt - totalPayment;
   const el = id => document.getElementById(id);
   if(el('cb-total-receipt')) el('cb-total-receipt').textContent = '₹'+fmt(totalReceipt);
@@ -1561,7 +1561,6 @@ function renderCollectionRegTab() {
     else if(desc.includes('pre')||desc.includes('advance')||desc.includes('prepay'))  centerMap[key].pre += amt;
   });
   const centers = Object.values(centerMap);
-  const today = new Date().toISOString().slice(0,10);
 
   return `
   <div id="collreg-wrap">
