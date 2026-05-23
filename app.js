@@ -1462,7 +1462,26 @@ function renderCashBookTab() {
   </div>`;
 }
 
-function calcCashBook() {
+function autoGenCenterCode(name) {
+  const codeEl = document.getElementById('f-center-code');
+  if (!codeEl || codeEl.dataset.manual === 'true') return;
+  // Take first 3 letters of each word, uppercase, join with hyphen, add number
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) { codeEl.value = ''; return; }
+  const abbr = words.map(w => w.slice(0,3).toUpperCase()).join('-');
+  // Count existing centers with same name prefix for unique number
+  const existing = allClients.filter(c => (c.center_name||'').toLowerCase() === name.trim().toLowerCase());
+  const num = String(existing.length > 0 ? existing[0].center_code?.split('-').pop() || '001' : '001');
+  codeEl.value = abbr + '-' + num.padStart(3,'0');
+}
+
+// If user manually edits center code, stop auto-overwriting
+document.addEventListener('input', e => {
+  if (e.target.id === 'f-center-code') e.target.dataset.manual = 'true';
+  if (e.target.id === 'f-center-name') e.target.nextElementSibling?.querySelector('#f-center-code') && (document.getElementById('f-center-code').dataset.manual = 'false');
+});
+
+
   const v = id => parseFloat(document.getElementById(id)?.value||0)||0;
   const totalReceipt = v('cb-opening') + v('cb-coll') + v('cb-lpf') + v('cb-lpc') + v('cb-prepay') + v('cb-od');
   const totalPayment = v('cb-disb') + v('cb-bank') + v('cb-exp1') + v('cb-exp2') + v('cb-exp3');
@@ -1515,13 +1534,31 @@ function printCashBook() {
 
 // ── COLLECTION REGISTER ────────────────────────────────────────────────────
 function renderCollectionRegTab() {
-  // Get unique centers from allClients
+  // Build center-wise data from allClients + allPayments
   const centerMap = {};
   allClients.forEach(c => {
     const key = c.center_name || 'Unknown';
-    if(!centerMap[key]) centerMap[key] = { name: key, due: 0, clients: 0 };
-    centerMap[key].due += parseFloat(c.balance)||0;
+    if(!centerMap[key]) centerMap[key] = { name: key, clients: 0, due: 0, pre: 0, od: 0, lpf: 0, lpc: 0 };
+    const weeks = parseInt(c.loan_weeks) || 12;
+    const loan  = parseFloat(c.balance) || 0;
+    const intr  = parseFloat(c.interest_amount) || 0;
+    centerMap[key].due += Math.round((loan + intr) / weeks);   // Weekly EMI due
     centerMap[key].clients++;
+  });
+
+  // Fill Pre / OD / LPF / LPC from today's payments by description keyword
+  const today = new Date().toISOString().slice(0,10);
+  allPayments.filter(p => p.type === 'credit').forEach(p => {
+    const cl = allClients.find(c => c.id === p.client_id);
+    if(!cl) return;
+    const key = cl.center_name || 'Unknown';
+    if(!centerMap[key]) return;
+    const amt = parseFloat(p.amount) || 0;
+    const desc = (p.description || '').toLowerCase();
+    if(desc.includes('lpf'))                          centerMap[key].lpf += amt;
+    else if(desc.includes('lpc'))                     centerMap[key].lpc += amt;
+    else if(desc.includes('overdue')||desc.includes('od')||desc.includes('over due')) centerMap[key].od += amt;
+    else if(desc.includes('pre')||desc.includes('advance')||desc.includes('prepay'))  centerMap[key].pre += amt;
   });
   const centers = Object.values(centerMap);
   const today = new Date().toISOString().slice(0,10);
@@ -1567,12 +1604,12 @@ function renderCollectionRegTab() {
           ${centers.length ? centers.map((ct,i)=>`
           <tr style="${i%2===0?'background:#fafafa':'background:white'}">
             <td style="padding:6px;border:1px solid #ddd;font-weight:600">${ct.name}<br><span style="font-size:9px;color:var(--muted)">${ct.clients} clients</span></td>
-            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="due" placeholder="0" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
-            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="pre" placeholder="0" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
-            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="od" placeholder="0" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
-            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="lpf" placeholder="0" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
-            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="lpc" placeholder="0" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
-            <td id="cr-total-${i}" style="padding:6px;border:1px solid #ddd;text-align:right;font-weight:700;color:var(--success)">0</td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="due" value="${ct.due||''}" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="pre" value="${ct.pre||''}" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="od" value="${ct.od||''}" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="lpf" value="${ct.lpf||''}" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="lpc" value="${ct.lpc||''}" oninput="calcCR(${i})" style="width:60px;border:none;font-size:11px;text-align:right;outline:none"></td>
+            <td id="cr-total-${i}" style="padding:6px;border:1px solid #ddd;text-align:right;font-weight:700;color:var(--success)">${((ct.due||0)+(ct.pre||0)+(ct.od||0)+(ct.lpf||0)+(ct.lpc||0)).toLocaleString('en-IN')}</td>
             <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted);font-size:13px">—</td>
             <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted);font-size:13px">—</td>
             <td style="padding:6px;border:1px solid #ddd;text-align:center;color:var(--muted);font-size:13px">—</td>
@@ -1590,12 +1627,12 @@ function renderCollectionRegTab() {
         <tfoot>
           <tr style="background:#e8f5e9;font-weight:800">
             <td style="padding:7px;border:1px solid #ccc;font-size:12px">Grand Total / कुल योग</td>
-            <td id="cr-gt-due" style="padding:7px;border:1px solid #ccc;text-align:right">0</td>
-            <td id="cr-gt-pre" style="padding:7px;border:1px solid #ccc;text-align:right">0</td>
-            <td id="cr-gt-od" style="padding:7px;border:1px solid #ccc;text-align:right">0</td>
-            <td id="cr-gt-lpf" style="padding:7px;border:1px solid #ccc;text-align:right">0</td>
-            <td id="cr-gt-lpc" style="padding:7px;border:1px solid #ccc;text-align:right">0</td>
-            <td id="cr-gt-total" style="padding:7px;border:1px solid #ccc;text-align:right;color:var(--navy)">0</td>
+            <td id="cr-gt-due" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.due||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-pre" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.pre||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-od" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.od||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-lpf" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.lpf||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-lpc" style="padding:7px;border:1px solid #ccc;text-align:right">${centers.reduce((s,c)=>s+(c.lpc||0),0).toLocaleString('en-IN')}</td>
+            <td id="cr-gt-total" style="padding:7px;border:1px solid #ccc;text-align:right;color:var(--navy)">${centers.reduce((s,c)=>s+(c.due||0)+(c.pre||0)+(c.od||0)+(c.lpf||0)+(c.lpc||0),0).toLocaleString('en-IN')}</td>
             <td colspan="4" style="border:1px solid #ccc"></td>
           </tr>
         </tfoot>
