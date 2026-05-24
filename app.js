@@ -580,7 +580,7 @@ function sendOTPviaSMS() {
   const indiaPhone = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
 
   // SMS message
-  const msg = 'Dhan Raksha Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
+  const msg = 'Sankat Mochan Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
 
   // Open SMS app directly
   window.open('sms:+' + indiaPhone + '?body=' + encodeURIComponent(msg), '_blank');
@@ -613,7 +613,7 @@ function sendClientOTP() {
     `🙏 नमस्ते ${name} जी!
 
 ` +
-    `धन रक्षा Finance में आपका OTP है:
+    `संकट मोचन Finance में आपका OTP है:
 
 ` +
     `*${generatedOTP}*
@@ -624,7 +624,7 @@ function sendClientOTP() {
     `किसी को share न करें।
 
 ` +
-    `धन रक्षा Finance 🚩`
+    `संकट मोचन Finance 🚩`
   );
 
   const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -1363,7 +1363,7 @@ function renderCashBookTab() {
     <!-- Header -->
     <div id="cashbook-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
       <div style="text-align:center;font-size:16px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:10px">
-        धन रक्षा Finance — Cash Book / नकद बही
+        संकट मोचन Finance — Cash Book / नकद बही
       </div>
       <div style="display:flex;gap:10px;margin-bottom:10px;font-size:12px">
         <div style="flex:1">
@@ -1541,7 +1541,7 @@ function printCashBook() {
   th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
   input{border:none;width:100%;text-align:right;font-size:12px}
   @media print{@page{margin:10mm}}</style></head><body>
-  <h2 style="text-align:center;margin-bottom:4px">धन रक्षा Finance — Cash Book</h2>
+  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
   <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
   ${area.innerHTML}</body></html>`;
   const w = window.open('','_blank');
@@ -1770,7 +1770,7 @@ function renderMeetingTab() {
     
     // Company Header
     html += '<div style="text-align:center;padding:10px;border-bottom:2px solid #000">';
-    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">धन रक्षा Finance</div>';
+    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">संकट मोचन Finance</div>';
     html += '<div style="font-size:11px;color:#666">शाखा कार्यालय: बलिया</div>';
     html += '</div>';
 
@@ -2238,7 +2238,7 @@ async function downloadClientPDF(clientId) {
       @media print{button{display:none}}
     </style></head>
     <body>
-      <h1>🚩 Dhan Raksha Finance — Client Report</h1>
+      <h1>🚩 Sankat Mochan Finance — Client Report</h1>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px">Generated: ${new Date().toLocaleString('hi-IN')}</div>
 
       <div class="section">
@@ -2324,7 +2324,7 @@ function sendWhatsAppReminder(clientId) {
     `• कुल भुगतान: ₹${fmt(totalPaid)}\n` +
     `• बकाया राशि: ₹${fmt(pending)}\n\n` +
     `कृपया समय पर भुगतान करें। धन्यवाद! 🙏\n\n` +
-    `Dhan Raksha Finance`
+    `Sankat Mochan Finance`
   );
 
   const phone = c.phone.replace(/[^0-9]/g, '');
@@ -2335,7 +2335,7 @@ function sendWhatsAppReminder(clientId) {
 function sendBirthdayWish(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number', 'error'); return; }
-  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nDhan Raksha Finance 🙏`);
+  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nSankat Mochan Finance 🙏`);
   const phone = c.phone.replace(/[^0-9]/g, '');
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 }
@@ -2545,7 +2545,7 @@ function showPassbook() {
           const loan = parseFloat(cl.balance)||0;
           const outstanding = Math.max(0, loan - totalPaid);
           return `
-          <div class="client-card passbook-client" data-id="${cl.id}" data-name="${cl.name.toLowerCase()}" onclick="showClientPassbook('${cl.id}')" ontouchend="event.preventDefault();showClientPassbook('${cl.id}')" style="margin-bottom:10px;cursor:pointer">
+          <div class="client-card passbook-client" data-id="${cl.id}" data-name="${cl.name.toLowerCase()}" onclick="showClientPassbook('${cl.id}')" ontouchstart="this._touchY=event.touches[0].clientY" ontouchend="if(Math.abs(event.changedTouches[0].clientY-this._touchY)<10){event.preventDefault();showClientPassbook('${cl.id}')}" style="margin-bottom:10px;cursor:pointer">
             <div class="client-avatar">${cl.name?.charAt(0).toUpperCase()}${cl.photo_url?`<img src="${cl.photo_url}" class="avatar-img"/>`:''}
             </div>
             <div class="client-info">
@@ -2823,7 +2823,7 @@ function printMeetingSheet() {
     pagesHtml += `
     <div class="page">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
-        <div style="font-size:16px;font-weight:bold">धन रक्षा FINANCE</div>
+        <div style="font-size:16px;font-weight:bold">संकट मोचन FINANCE</div>
         <div style="font-size:10px">शाखा कार्यालय: बलिया</div>
       </div>
       <table class="info-table">
@@ -2921,7 +2921,7 @@ function printMeetingSheet() {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>CDS - Dhan Raksha Finance</title>
+<title>CDS - Sankat Mochan Finance</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, sans-serif; font-size: 9px; color: #000; }
@@ -3035,7 +3035,7 @@ function showMeetingDay() {
 
             <!-- Company Header -->
             <div style="text-align:center;border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:10px">
-              <div style="font-size:15px;font-weight:700;color:var(--navy)">धन रक्षा Finance</div>
+              <div style="font-size:15px;font-weight:700;color:var(--navy)">संकट मोचन Finance</div>
               <div style="font-size:11px;color:var(--muted)">Center Day Sheet (CDS)</div>
             </div>
 
