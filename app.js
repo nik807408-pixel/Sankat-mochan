@@ -2,8 +2,8 @@
 //  CONFIGURATION — Replace with your Supabase values
 //  supabase.com → Project Settings → API
 // ─────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://oswbpddfbofoyddxdfej.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zd2JwZGRmYm9mb3lkZHhkZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MzA0NDUsImV4cCI6MjA5NTEwNjQ0NX0.Gem36jnT-m4I13k078tYxyxPfv_FLChfxgrMK4Kzk7o';
+const SUPABASE_URL = 'https://chaenhnaslkmzutmsumi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYWVuaG5hc2xrbXp1dG1zdW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzA2MjcsImV4cCI6MjA5MzYwNjYyN30.X-f-HPQzFMu7DivRZJz9y0Zx2DMjlh3trN';
 // ─────────────────────────────────────────────────────────
 
 // ── HELPER FUNCTIONS ─────────────────────
@@ -46,11 +46,10 @@ window.addEventListener('load', async () => {
     document.getElementById('splash').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('splash').style.display = 'none';
-      // DEMO MODE — login skip, direct admin access
-      initDemoApp();
+      session ? initApp(session.user) : showAuth();
     }, 500);
   }, 2000);
-  // db.auth.onAuthStateChange removed for demo
+  db.auth.onAuthStateChange((_e, s) => { if (!s) showAuth(); });
 });
 
 function showAuth() {
