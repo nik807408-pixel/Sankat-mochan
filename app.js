@@ -1838,9 +1838,10 @@ function renderMeetingTab() {
       const intAmt = parseFloat(cl.interest_amount)||0;
       const outstandingP = Math.max(0, loanAmt - payments.length * Math.round(loanAmt/(parseInt(cl.loan_weeks)||12)));
       const outstandingI = Math.max(0, intAmt - payments.length * Math.round(intAmt/(parseInt(cl.loan_weeks)||12)));
-      const pDue = Math.round(loanAmt/(parseInt(cl.loan_weeks)||12));
-      const iDue = Math.round(intAmt/(parseInt(cl.loan_weeks)||12));
-      const emi = pDue + iDue;
+      const _weeks = parseInt(cl.loan_weeks)||12;
+      const emi = Math.round((loanAmt + intAmt) / _weeks);
+      const pDue = Math.round(loanAmt / _weeks);
+      const iDue = emi - pDue;
       const instNo = payments.length;
       const dbDate = cl.loan_date || cl.first_emi_date || '—';
       const bg = i%2===0 ? 'white' : '#f9f9f9';
@@ -2586,7 +2587,7 @@ function showClientPassbook(clientId) {
   const totalWeeks = parseInt(cl.loan_weeks) || 12;
   const weeklyEMI = Math.round((loan + interest) / totalWeeks);
   const weeklyPrincipal = Math.round(loan / totalWeeks);
-  const weeklyInterest = Math.round(interest / totalWeeks);
+  const weeklyInterest = weeklyEMI - weeklyPrincipal;
   const totalDuePerWeek = cl.emi_amount || weeklyEMI;
 
   const c = document.getElementById('main-content');
@@ -2642,7 +2643,7 @@ function showClientPassbook(clientId) {
             const totalLoanPlusInterest = loan + interest;
             const weeklyEMI = Math.round(totalLoanPlusInterest / totalWeeks);
             const weeklyPrincipal = Math.round(loan / totalWeeks);
-            const weeklyInterest = Math.round(interest / totalWeeks);
+            const weeklyInterest = weeklyEMI - weeklyPrincipal;
 
             // Auto calculate weekly dates from first EMI date
             const startDate = cl.first_emi_date || cl.loan_date || new Date().toISOString().slice(0,10);
@@ -2798,9 +2799,10 @@ function printMeetingSheet() {
       const intAmt = parseFloat(cl.interest_amount)||0;
       const outP = Math.max(0, loanAmt - payments.length * Math.round(loanAmt/(parseInt(cl.loan_weeks)||12)));
       const outI = Math.max(0, intAmt - payments.length * Math.round(intAmt/(parseInt(cl.loan_weeks)||12)));
-      const pDue = Math.round(loanAmt/(parseInt(cl.loan_weeks)||12));
-      const iDue = Math.round(intAmt/(parseInt(cl.loan_weeks)||12));
-      const emi = pDue + iDue;
+      const _weeks = parseInt(cl.loan_weeks)||12;
+      const emi = Math.round((loanAmt + intAmt) / _weeks);
+      const pDue = Math.round(loanAmt / _weeks);
+      const iDue = emi - pDue;
       const bg = i%2===0 ? '#fff' : '#f9f9f9';
       rows += `<tr style="background:${bg}">
         <td>${cl.loan_id||cl.customer_id||'-'}</td>
