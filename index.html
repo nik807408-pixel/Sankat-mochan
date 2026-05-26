@@ -482,11 +482,24 @@
       <!-- Aadhaar Photo Upload -->
       <div class="field">
         <label>Aadhaar Card Photo / आधार कार्ड फोटो (Optional - Max 50KB)</label>
-        <div class="doc-upload-box" onclick="document.getElementById('aadhaar-photo-input').click()">
-          <div id="aadhaar-preview-text">📄 Upload later / बाद में भी कर सकते हैं</div>
-          <img id="aadhaar-preview-img" class="doc-preview" style="display:none"/>
+        <div style="display:flex;gap:10px">
+          <div style="flex:1">
+            <div style="font-size:11px;color:#666;margin-bottom:4px">Front / आगे</div>
+            <div class="doc-upload-box" onclick="document.getElementById('aadhaar-photo-input').click()">
+              <div id="aadhaar-preview-text">📄 Upload later</div>
+              <img id="aadhaar-preview-img" class="doc-preview" style="display:none"/>
+            </div>
+            <input type="file" id="aadhaar-photo-input" accept="image/*" onchange="handleDocPhoto(this,'aadhaar')"/>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:#666;margin-bottom:4px">Back / पीछे</div>
+            <div class="doc-upload-box" onclick="document.getElementById('aadhaar-back-input').click()">
+              <div id="aadhaar-back-preview-text">📄 Upload later</div>
+              <img id="aadhaar-back-preview-img" class="doc-preview" style="display:none"/>
+            </div>
+            <input type="file" id="aadhaar-back-input" accept="image/*" onchange="handleDocPhoto(this,'aadhaar-back')"/>
+          </div>
         </div>
-        <input type="file" id="aadhaar-photo-input" accept="image/*" onchange="handleDocPhoto(this,'aadhaar')"/>
       </div>
 
       <!-- PAN Photo Upload -->
