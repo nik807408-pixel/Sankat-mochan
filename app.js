@@ -755,15 +755,15 @@ async function handleDocPhoto(input, type) {
     const reader = new FileReader();
     reader.onload = e => {
       // Handle different preview IDs
-      if (type === 'aadhaar-front') {
-        const img = document.getElementById('aadhaar-front-img');
-        const txt = document.getElementById('aadhaar-front-text');
+      if (type === 'aadhaar-front' || type === 'aadhaar') {
+        const img = document.getElementById('aadhaar-front-img') || document.getElementById('aadhaar-preview-img');
+        const txt = document.getElementById('aadhaar-front-text') || document.getElementById('aadhaar-preview-text');
         if (img) { img.src = e.target.result; img.style.display = 'block'; }
         if (txt) txt.style.display = 'none';
         aadhaarPhotoFile = compressed;
       } else if (type === 'aadhaar-back') {
-        const img = document.getElementById('aadhaar-back-img');
-        const txt = document.getElementById('aadhaar-back-text');
+        const img = document.getElementById('aadhaar-back-img') || document.getElementById('aadhaar-back-preview-img');
+        const txt = document.getElementById('aadhaar-back-text') || document.getElementById('aadhaar-back-preview-text');
         if (img) { img.src = e.target.result; img.style.display = 'block'; }
         if (txt) txt.style.display = 'none';
         aadhaarBackPhotoFile = compressed;
@@ -2719,7 +2719,7 @@ function showClientPassbook(clientId) {
         <tfoot>
           <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--navy)">
             <td colspan="5" style="padding:8px 10px;color:var(--navy)">कुल / Total</td>
-            <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(payments.filter(p=>p.type==='credit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</td>
+            <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(payments.filter(p=>p.type==='credit' && !(p.description||'').includes('Reversal')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</td>
             <td style="padding:8px 10px;text-align:right;color:var(--danger)">₹${fmt(Math.max(0,(loan+interest)-payments.filter(p=>p.type==='credit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0)+payments.filter(p=>p.type==='debit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0)))}</td>
             <td colspan="3"></td>
           </tr>
