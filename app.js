@@ -1343,7 +1343,109 @@ function renderPassbookTab() {
 }
 
 
-// ── CASH BOOK ──────────────────────────────────────────────────────────────
+// ── LOAN RENEWAL ─────────────────────────────────────────────────────────
+function openRenewModal(clientId) {
+  const cl = allClients.find(c => c.id === clientId);
+  if (!cl) return;
+
+  // Auto next cycle
+  const cycleMap = {'1st':'2nd','2nd':'3rd','3rd':'4th','4th':'5th','5th':'6th','6th':'7th','7th':'8th','8th':'9th','9th':'10th'};
+  const nextCycle = cycleMap[cl.loan_cycle] || (parseInt(cl.loan_cycle)||1) + 1 + 'th';
+  const today = new Date().toISOString().slice(0,10);
+
+  const modal = document.createElement('div');
+  modal.id = 'renew-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:16px;font-weight:800;color:var(--navy)">🔄 Loan Renewal</div>
+          <div style="font-size:12px;color:var(--muted)">${cl.name} — ${cl.loan_cycle} → <strong>${nextCycle}</strong></div>
+        </div>
+        <button onclick="document.getElementById('renew-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer">✕</button>
+      </div>
+
+      <div style="background:#fff8e1;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:#856404">
+        ℹ️ KYC, Photo, Center — sab same rahega. Sirf loan details update honge.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted)">Loan Amount ₹</label>
+          <input id="rn-balance" type="number" placeholder="0" value="${cl.balance||''}" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted)">Interest ₹</label>
+          <input id="rn-interest" type="number" placeholder="0" value="${cl.interest_amount||''}" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted)">Loan Weeks</label>
+          <select id="rn-weeks" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+            <option value="12" ${(cl.loan_weeks||12)==12?'selected':''}>12 Weeks</option>
+            <option value="16" ${cl.loan_weeks==16?'selected':''}>16 Weeks</option>
+            <option value="24" ${cl.loan_weeks==24?'selected':''}>24 Weeks</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted)">Loan Cycle</label>
+          <input id="rn-cycle" type="text" value="${nextCycle}" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted)">Loan Date</label>
+          <input id="rn-loan-date" type="date" value="${today}" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;color:var(--muted)">First EMI Date</label>
+          <input id="rn-emi-date" type="date" value="${today}" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+        </div>
+      </div>
+
+      <button onclick="submitRenewal('${clientId}')" style="width:100%;padding:13px;background:linear-gradient(135deg,#e65c00,#f9d423);color:white;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">
+        🔄 Renew Loan / लोन नवीनीकरण करें
+      </button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function submitRenewal(clientId) {
+  const balance  = parseFloat(document.getElementById('rn-balance')?.value) || 0;
+  const interest = parseFloat(document.getElementById('rn-interest')?.value) || 0;
+  const weeks    = parseInt(document.getElementById('rn-weeks')?.value) || 12;
+  const cycle    = document.getElementById('rn-cycle')?.value || '2nd';
+  const loanDate = document.getElementById('rn-loan-date')?.value || '';
+  const emiDate  = document.getElementById('rn-emi-date')?.value || '';
+
+  if (!balance) { showToast('Loan amount daalo!', 'error'); return; }
+
+  const weeklyEMI = Math.round((balance + interest) / weeks);
+
+  try {
+    const { error } = await db.from('clients').update({
+      balance,
+      interest_amount: interest,
+      loan_weeks: weeks,
+      loan_cycle: cycle,
+      loan_date: loanDate,
+      first_emi_date: emiDate,
+      emi_amount: weeklyEMI,
+      kyc_status: 'approved'
+    }).eq('id', clientId);
+
+    if (error) throw error;
+
+    document.getElementById('renew-modal')?.remove();
+    showToast(`✅ Loan Renewed! ${cycle} cycle — ₹${fmt(weeklyEMI)}/week`, 'success');
+    await loadAll();
+    showClientPassbook(clientId);
+
+  } catch(err) {
+    console.error('Renewal error:', err);
+    showToast('Renewal failed! Try again', 'error');
+  }
+}
+
+
 function renderCashBookTab() {
   const today = new Date().toISOString().slice(0,10);
   // Auto-fill opening balance from allPayments
@@ -2729,6 +2831,9 @@ function showClientPassbook(clientId) {
 
     <!-- Add Payment Button -->
     <button onclick="activeClientId='${clientId}';openPayModal()" style="width:100%;padding:12px;background:var(--navy);color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-top:12px">+ किस्त जोड़ें / Add Payment</button>
+
+    <!-- Renew Loan Button -->
+    <button onclick="openRenewModal('${clientId}')" style="width:100%;padding:12px;background:linear-gradient(135deg,#e65c00,#f9d423);color:white;border:none;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px">🔄 Loan Renew करें / Renew Loan</button>
 
     <!-- टिप्पणी -->
     <div style="background:white;border-radius:12px;padding:14px;margin-top:12px;border:1px solid var(--border)">
