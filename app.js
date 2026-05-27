@@ -2759,11 +2759,13 @@ function showClientPassbook(clientId) {
             let runningOutstanding = totalLoanPlusInterest;
             
             payments.forEach((p, i) => {
-              const isReversal = p.type === 'debit' && (p.description||'').includes('Reversal');
+              const isReversal = (p.description||'').includes('Reversal');
+              const isDebitReversal = p.type === 'debit' && isReversal;
+              const isCreditReversal = p.type === 'credit' && isReversal;
               const amount = parseFloat(p.amount) || 0;
 
-              if (isReversal) {
-                // Reversal: outstanding WAPAS BADHE
+              if (isDebitReversal) {
+                // Debit Reversal: outstanding WAPAS BADHE
                 runningOutstanding = Math.min(totalLoanPlusInterest, runningOutstanding + amount);
                 rows.push(`
                 <tr style="background:#fff5f5;border-bottom:1px solid var(--border)">
@@ -2773,6 +2775,19 @@ function showClientPassbook(clientId) {
                   <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">-₹${fmt(amount)}</td>
                   <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
                   <td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border)">❌</td>
+                  <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
+                  <td style="padding:6px 8px;font-size:10px;color:var(--muted)">${p.description||''}</td>
+                </tr>`);
+              } else if (isCreditReversal) {
+                // Credit Reversal (reversing a debit): show row but outstanding doesn't change
+                rows.push(`
+                <tr style="background:#fff8e1;border-bottom:1px solid var(--border)">
+                  <td style="padding:6px 8px;text-align:center;color:var(--muted);border-right:1px solid var(--border)">${p.date||'—'}</td>
+                  <td style="padding:6px 8px;text-align:center;font-weight:700;color:var(--warning);border-right:1px solid var(--border)">↩️</td>
+                  <td style="padding:6px 8px;text-align:center;color:var(--warning);border-right:1px solid var(--border)" colspan="3">↩️ Reversal Entry</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--warning);font-weight:700;border-right:1px solid var(--border)">+₹${fmt(amount)}</td>
+                  <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:700;border-right:1px solid var(--border)">₹${fmt(runningOutstanding)}</td>
+                  <td style="padding:6px 8px;text-align:center;border-right:1px solid var(--border)">↩️</td>
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px;font-size:10px;color:var(--muted)">${p.description||''}</td>
                 </tr>`);
@@ -2821,8 +2836,13 @@ function showClientPassbook(clientId) {
         <tfoot>
           <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--navy)">
             <td colspan="5" style="padding:8px 10px;color:var(--navy)">कुल / Total</td>
-            <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(payments.filter(p=>p.type==='credit' && !(p.description||'').includes('Reversal')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0))}</td>
-            <td style="padding:8px 10px;text-align:right;color:var(--danger)">₹${fmt(Math.max(0,(loan+interest)-payments.filter(p=>p.type==='credit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0)+payments.filter(p=>p.type==='debit').reduce((s,p)=>s+(parseFloat(p.amount)||0),0)))}</td>
+            <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(
+              payments.filter(p=>p.type==='credit' && !(p.description||'').includes('Reversal')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
+            )}</td>
+            <td style="padding:8px 10px;text-align:right;color:var(--danger)">₹${fmt(Math.max(0,
+              (loan+interest) -
+              payments.filter(p=>p.type==='credit' && !(p.description||'').includes('Reversal')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0)
+            ))}</td>
             <td colspan="3"></td>
           </tr>
         </tfoot>
