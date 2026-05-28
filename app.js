@@ -2025,7 +2025,7 @@ function renderMeetingTab() {
     html += '<th style="padding:5px 4px;border:1px solid #444">SIGN.</th>';
     html += '</tr></thead><tbody>';
 
-    clients.forEach((cl, i) => {
+    centerClients.forEach((cl, i) => {
       const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
       const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
       const loanAmt = parseFloat(cl.balance)||0;
@@ -3264,12 +3264,12 @@ function showMeetingDay() {
       const isToday = new Date().toLocaleDateString('en-US', {weekday:'long'}) === dayShort;
 
       // Calculate totals for CDS
-      const totalLoan = clients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
-      const totalOutstanding = clients.reduce((s,cl) => {
+      const totalLoan = centerClients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
+      const totalOutstanding = centerClients.reduce((s,cl) => {
         const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit').reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
         return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid);
       }, 0);
-      const totalEMI = clients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/(parseInt(cl.loan_weeks)||12)), 0);
+      const totalEMI = centerClients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/(parseInt(cl.loan_weeks)||12)), 0);
 
       return `
         <div style="margin-bottom:20px" id="cds-${day.replace(/\s/g,'-')}">
@@ -3316,7 +3316,7 @@ function showMeetingDay() {
                   </tr>
                 </thead>
                 <tbody>
-                  ${clients.map((cl, i) => {
+                  ${centerClients.map((cl, i) => {
                     const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
                     const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
                     const loanAmt = parseFloat(cl.balance)||0;
