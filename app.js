@@ -258,9 +258,15 @@ function renderDashboard(c) {
     </div>
 
     <div class="chart-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <div class="chart-title" style="margin:0">💰 Payment History / भुगतान इतिहास</div>
         <button onclick="exportPaymentsExcel()" style="background:var(--success);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">📥 Export Excel</button>
+      </div>
+      <!-- Client Search -->
+      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
+        <input type="text" id="ph-client-search" placeholder="🔍 Client name search करें..." 
+          oninput="filterPaymentHistory(this.value)"
+          style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--navy)">
       </div>
       ${!allPayments || allPayments.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">No payments yet / कोई भुगतान नहीं<br><span style="font-size:11px">Client पर click करके payment add करें</span></div>' :
       `<div style="overflow-x:auto">
@@ -275,18 +281,20 @@ function renderDashboard(c) {
               <th style="padding:8px 10px;text-align:center;white-space:nowrap">✓</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="ph-table-body">
             ${(() => {
-              // Calculate running outstanding per client
               const clientOutstanding = {};
-              allClients.forEach(cl => { clientOutstanding[cl.id] = parseFloat(cl.balance)||0; });
-              return allPayments.slice(0,10).map((p,i) => {
+              allClients.forEach(cl => { clientOutstanding[cl.id] = (parseFloat(cl.balance)||0) + (parseFloat(cl.interest_amount)||0); });
+              const filtered = allPayments;
+              return filtered.slice(0,50).map((p,i) => {
                 const client = allClients.find(c => c.id === p.client_id);
-                if (p.type === 'credit' && client) {
+                if (p.type === 'credit' && !(p.description||'').includes('Reversal') && !(p.description||'').includes('DELETED') && client) {
                   clientOutstanding[p.client_id] = Math.max(0, (clientOutstanding[p.client_id]||0) - (parseFloat(p.amount)||0));
+                } else if (p.type === 'debit' && (p.description||'').includes('Reversal') && client) {
+                  clientOutstanding[p.client_id] = Math.min((parseFloat(client.balance)||0)+(parseFloat(client.interest_amount)||0), (clientOutstanding[p.client_id]||0) + (parseFloat(p.amount)||0));
                 }
                 const outstanding = clientOutstanding[p.client_id] || 0;
-                return `<tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
+                return `<tr data-client="${client?.name||''}" data-phone="${client?.phone||''}" style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
                   <td style="padding:7px 10px;white-space:nowrap;color:var(--muted);font-size:11px">${p.date||'—'}</td>
                   <td style="padding:7px 10px;font-weight:600;color:var(--navy);font-size:12px">${client?.name||'?'}</td>
                   <td style="padding:7px 10px;color:var(--muted);font-size:11px">${p.description||'Cash'}</td>
@@ -300,7 +308,7 @@ function renderDashboard(c) {
             })()}
           </tbody>
         </table>
-        ${allPayments.length > 10 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--muted)">Showing 10 of ${allPayments.length} payments</div>` : ''}
+        ${allPayments.length > 50 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--muted)">Showing 50 of ${allPayments.length} payments</div>` : ''}
       </div>`}
     </div>
 
@@ -1062,21 +1070,24 @@ async function openDetail(id) {
 
     <div class="detail-section">
       <div class="detail-section-title">💰 Payments / भुगतान (${payments.length})</div>
-      ${payments.length ? payments.slice(0,5).map(p => `
-        <div class="payment-item">
-          <div class="pay-icon ${p.type==='credit'?'pay-in':'pay-out'}">${p.type==='credit'?'✅':'❌'}</div>
+      ${payments.length ? payments.slice(0,5).map(p => {
+        const isDeleted = (p.description||'').includes('🗑️ DELETED');
+        return `
+        <div class="payment-item" style="${isDeleted ? 'opacity:0.5;background:#fef2f2;border-radius:8px;' : ''}">
+          <div class="pay-icon ${p.type==='credit'?'pay-in':'pay-out'}">${isDeleted ? '🗑️' : p.type==='credit'?'✅':'❌'}</div>
           <div class="pay-info">
-            <div class="pay-desc">${p.description||'Cash'} <span style="font-size:10px;color:var(--muted);font-weight:400">(pay mode)</span></div>
+            <div class="pay-desc" style="${isDeleted ? 'text-decoration:line-through;color:var(--muted)' : ''}">${p.description||'Cash'} <span style="font-size:10px;color:var(--muted);font-weight:400">(pay mode)</span></div>
             <div class="pay-date">${p.date||''}</div>
           </div>
-          <div class="pay-amount" style="color:${p.type==='credit'?'var(--success)':'var(--danger)'}">
+          <div class="pay-amount" style="color:${isDeleted ? 'var(--muted)' : p.type==='credit'?'var(--success)':'var(--danger)'};${isDeleted?'text-decoration:line-through':''}">
             ${p.type==='credit'?'+':'-'}₹${fmt(parseFloat(p.amount)||0)}
           </div>
-          ${currentProfile?.role === 'admin' ? `
-          <button onclick="reversePayment('${p.id}','${p.amount}','${p.type}')" 
-            style="margin-left:6px;padding:4px 8px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#856404;white-space:nowrap"
-            title="Reverse this payment">↩️ Reverse</button>` : ''}
-        </div>`).join('') : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:10px">No payments yet</div>'}
+          ${currentProfile?.role === 'admin' && !isDeleted ? `
+          <button onclick="deletePayment('${p.id}')" 
+            style="margin-left:6px;padding:4px 8px;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;color:#dc2626;white-space:nowrap"
+            title="Delete this payment">🗑️ Delete</button>` : ''}
+        </div>`;
+      }).join('') : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:10px">No payments yet</div>'}
       <button class="pay-add-btn" onclick="openPayModal()">+ Add Payment / भुगतान जोड़ें</button>
     </div>
 
@@ -1343,7 +1354,77 @@ function renderPassbookTab() {
 }
 
 
-// ── LOAN RENEWAL ─────────────────────────────────────────────────────────
+// ── HINDI TRANSLITERATION FOR SEARCH ────────────────────────────────────
+function hindiToLatin(str) {
+  if (!str) return '';
+  const cons = {'क':'k','ख':'kh','ग':'g','घ':'gh','ङ':'n','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'n','ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n','प':'p','फ':'ph','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h'};
+  const vowels = {'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ए':'e','ऐ':'ai','ओ':'o','औ':'au','ऋ':'ri'};
+  const matras = {'ा':'a','ि':'i','ी':'ee','ु':'u','ू':'oo','े':'e','ै':'ai','ो':'o','ौ':'au','ं':'n','ँ':'n','ः':'h','्':''};
+  
+  let result = '';
+  const chars = [...str];
+  for (let i = 0; i < chars.length; i++) {
+    const c = chars[i];
+    const next = chars[i+1] || '';
+    if (cons[c]) {
+      result += cons[c];
+      if (!matras[next] && next !== '्') result += 'a'; // inherent 'a'
+    } else if (matras[c]) {
+      result += matras[c];
+    } else if (vowels[c]) {
+      result += vowels[c];
+    } else if (c === ' ') {
+      result += ' ';
+    }
+    // skip halant - already handled above
+  }
+  return result.toLowerCase().replace(/aa/g,'a').replace(/ee/g,'i');
+}
+
+function nameMatchesSearch(name, query) {
+  if (!query) return true;
+  const q = query.toLowerCase().trim();
+  const nameLower = name.toLowerCase();
+  // Direct Hindi match
+  if (nameLower.includes(q)) return true;
+  // Transliterated match
+  const transliterated = hindiToLatin(name);
+  if (transliterated.includes(q)) return true;
+  // Also try removing spaces
+  if (transliterated.replace(/\s/g,'').includes(q.replace(/\s/g,''))) return true;
+  return false;
+}
+
+// ── HINDI TRANSLITERATION ────────────────────────────────────────────────
+function hindiToRoman(text) {
+  if (!text) return '';
+  const map = {'अ':'a','आ':'aa','इ':'i','ई':'ee','उ':'u','ऊ':'oo','ए':'e','ऐ':'ai','ओ':'o','औ':'au',
+    'क':'k','ख':'kh','ग':'g','घ':'gh','च':'ch','छ':'chh','ज':'j','झ':'jh',
+    'ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n',
+    'प':'p','फ':'f','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v',
+    'श':'sh','ष':'sh','स':'s','ह':'h','क्ष':'ksh','त्र':'tr','ज्ञ':'gya',
+    'ा':'a','ि':'i','ी':'ee','ु':'u','ू':'oo','े':'e','ै':'ai','ो':'o','ौ':'au',
+    'ं':'n','ः':'h','्':'','ँ':'n','़':'','ृ':'ri'};
+  let result = text;
+  Object.entries(map).sort((a,b) => b[0].length - a[0].length).forEach(([h,r]) => {
+    result = result.split(h).join(r);
+  });
+  return result.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+}
+
+function filterPaymentHistory(searchQ) {
+  const q = (searchQ || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#ph-table-body tr');
+  rows.forEach(row => {
+    const clientHindi = (row.dataset.client || '').toLowerCase();
+    const clientRoman = hindiToRoman(row.dataset.client || '');
+    const phone = (row.dataset.phone || '');
+    const show = !q || clientHindi.includes(q) || clientRoman.includes(q) || phone.includes(q);
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+
 function openRenewModal(clientId) {
   const cl = allClients.find(c => c.id === clientId);
   if (!cl) return;
@@ -1859,14 +1940,25 @@ function renderMeetingTab() {
 
     const dayShort = day.split('/')[0].trim();
     const isToday = dayName === dayShort;
-    const totalLoan = clients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
-    const totalOutstanding = clients.reduce((s,cl) => {
-      const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit').reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
-      return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid);
-    }, 0);
-    const totalEMI = clients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/(parseInt(cl.loan_weeks)||12)), 0);
-    const totalPDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.balance)||0)/(parseInt(cl.loan_weeks)||12)), 0);
-    const totalIDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.interest_amount)||0)/(parseInt(cl.loan_weeks)||12)), 0);
+
+    // Group by center
+    const centerMap = {};
+    clients.forEach(cl => {
+      const key = cl.center_name || 'Unknown Center';
+      if (!centerMap[key]) centerMap[key] = [];
+      centerMap[key].push(cl);
+    });
+
+    Object.entries(centerMap).forEach(([centerName, centerClients]) => {
+      const totalLoan = centerClients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
+      const totalOutstanding = centerClients.reduce((s,cl) => {
+        const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit'&&!(p.description||'').includes('Reversal')).reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+        const reverted = allPayments.filter(p=>p.client_id===cl.id&&p.type==='debit'&&(p.description||'').includes('Reversal')).reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+        return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid+reverted);
+      }, 0);
+      const totalEMI = centerClients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/(parseInt(cl.loan_weeks)||12)), 0);
+      const totalPDue = centerClients.reduce((s,cl) => s+Math.round((parseFloat(cl.balance)||0)/(parseInt(cl.loan_weeks)||12)), 0);
+      const totalIDue = centerClients.reduce((s,cl) => s+Math.round((parseFloat(cl.interest_amount)||0)/(parseInt(cl.loan_weeks)||12)), 0);
 
     html += '<div style="margin-bottom:20px;border:1px solid #ccc;border-radius:8px;overflow:hidden;background:white">';
     
@@ -1879,7 +1971,7 @@ function renderMeetingTab() {
     // Center Info - Row 1
     html += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
     html += '<tr>';
-    html += '<td style="border:1px solid #ccc;padding:5px;width:33%"><strong>'+clients[0]?.center_name+' / '+clients[0]?.center_code+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;width:33%"><strong>'+centerName+' / '+(centerClients[0]?.center_code||'')+'</strong></td>';
     html += '<td style="border:1px solid #ccc;padding:5px;width:34%;text-align:center"><strong>'+day+'</strong>'+(isToday?' ⭐ TODAY':'')+'</td>';
     html += '<td style="border:1px solid #ccc;padding:5px;width:33%">'+day.split('/')[0].trim().toUpperCase()+'</td>';
     html += '</tr>';
@@ -1893,14 +1985,14 @@ function renderMeetingTab() {
     
     // Row 3
     html += '<tr>';
-    html += '<td style="border:1px solid #ccc;padding:5px">L.C.: <strong>'+(clients[0]?.loan_cycle||'—')+'</strong></td>';
-    html += '<td style="border:1px solid #ccc;padding:5px;text-align:center">Members: <strong>'+clients.length+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px">L.C.: <strong>'+(centerClients[0]?.loan_cycle||'—')+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px;text-align:center">Members: <strong>'+centerClients.length+'</strong></td>';
     html += '<td style="border:1px solid #ccc;padding:5px">T.Outstanding: <strong style="color:red">₹'+fmt(totalOutstanding)+'</strong></td>';
     html += '</tr>';
     
     // Row 4
     html += '<tr>';
-    html += '<td style="border:1px solid #ccc;padding:5px">Center ID: <strong>'+(clients[0]?.center_code||'—')+'</strong></td>';
+    html += '<td style="border:1px solid #ccc;padding:5px">Center ID: <strong>'+(centerClients[0]?.center_code||'—')+'</strong></td>';
     html += '<td style="border:1px solid #ccc;padding:5px">Receipt No: </td>';
     html += '<td style="border:1px solid #ccc;padding:5px">Staff: <strong>'+currentProfile?.name+'</strong></td>';
     html += '</tr>';
@@ -2006,7 +2098,8 @@ function renderMeetingTab() {
     html += '</div>';
     
     html += '</div>'; // end card
-  });
+    }); // end centerMap forEach
+  }); // end days forEach
 
   if (!html) return emptyState('🏘️','No meeting scheduled<br>Client में Meeting Day set करें');
   return html;
@@ -2268,12 +2361,37 @@ async function showDailyCollectionReport() {
 // ── NPA / OVERDUE TRACKING ─────────────────
 function showNPAReport() {
   const today = new Date();
+  today.setHours(0,0,0,0);
+
   const overdueClients = allClients.filter(c => {
-    const payments = allPayments.filter(p => p.client_id === c.id && p.type === 'credit');
-    const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    if (c.status === 'closed' || c.status === 'inactive') return false;
     const loanAmt = parseFloat(c.balance) || 0;
-    const daysSinceCreated = Math.floor((today - new Date(c.created_at)) / (1000 * 60 * 60 * 24));
-    return loanAmt > totalPaid && daysSinceCreated > 30;
+    const intAmt = parseFloat(c.interest_amount) || 0;
+    if (!loanAmt) return false;
+
+    const totalWeeks = parseInt(c.loan_weeks) || 12;
+    const weeklyEMI = Math.round((loanAmt + intAmt) / totalWeeks);
+
+    // First EMI date se kitne weeks ho gaye
+    const firstEMI = new Date(c.first_emi_date || c.loan_date || c.created_at);
+    firstEMI.setHours(0,0,0,0);
+    if (firstEMI > today) return false; // loan abhi shuru nahi hua
+
+    const weeksElapsed = Math.floor((today - firstEMI) / (7 * 24 * 60 * 60 * 1000));
+    const expectedInstallments = Math.min(weeksElapsed, totalWeeks);
+    if (expectedInstallments <= 0) return false;
+
+    // Real payments (reversal exclude)
+    const realPaid = allPayments
+      .filter(p => p.client_id === c.id && p.type === 'credit' && !(p.description||'').includes('Reversal') && !(p.description||'').includes('DELETED'))
+      .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    const debitReversals = allPayments
+      .filter(p => p.client_id === c.id && p.type === 'debit' && (p.description||'').includes('Reversal'))
+      .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    const netPaid = Math.max(0, realPaid - debitReversals);
+
+    const expectedAmt = expectedInstallments * weeklyEMI;
+    return netPaid < expectedAmt; // missed at least one EMI
   });
 
   const c = document.getElementById('main-content');
@@ -2413,7 +2531,7 @@ function sendWhatsAppReminder(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number / फोन नंबर नहीं है', 'error'); return; }
 
-  const payments = allPayments.filter(p => p.client_id === clientId && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))));
+  const payments = allPayments.filter(p => p.client_id === clientId && !(p.description||'').includes('DELETED') && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))));
   const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
   const pending = (parseFloat(c.balance) || 0) - totalPaid;
 
@@ -2681,7 +2799,7 @@ function showClientPassbook(clientId) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
-  const payments = allPayments.filter(p => p.client_id === clientId && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))))
+  const payments = allPayments.filter(p => p.client_id === clientId && !(p.description||'').includes('DELETED') && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))))
     .sort((a,b) => new Date(a.date) - new Date(b.date));
 
   const loan = parseFloat(cl.balance) || 0;
@@ -2896,17 +3014,28 @@ function printMeetingSheet() {
     if (!clients.length) return;
 
     const dayShort = day.split('/')[0].trim();
-    const totalLoan = clients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
-    const totalOutstanding = clients.reduce((s,cl) => {
-      const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit').reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
-      return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid);
+
+    // Group by center
+    const centerMap = {};
+    clients.forEach(cl => {
+      const key = cl.center_name || 'Unknown Center';
+      if (!centerMap[key]) centerMap[key] = [];
+      centerMap[key].push(cl);
+    });
+
+    Object.entries(centerMap).forEach(([centerName, centerClients]) => {
+    const totalLoan = centerClients.reduce((s,cl) => s+(parseFloat(cl.balance)||0), 0);
+    const totalOutstanding = centerClients.reduce((s,cl) => {
+      const paid = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit'&&!(p.description||'').includes('Reversal')).reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+      const rev = allPayments.filter(p=>p.client_id===cl.id&&p.type==='debit'&&(p.description||'').includes('Reversal')).reduce((a,p)=>a+(parseFloat(p.amount)||0),0);
+      return s + Math.max(0,(parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0)-paid+rev);
     }, 0);
-    const totalEMI = clients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/(parseInt(cl.loan_weeks)||12)), 0);
-    const totalPDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.balance)||0)/(parseInt(cl.loan_weeks)||12)), 0);
-    const totalIDue = clients.reduce((s,cl) => s+Math.round((parseFloat(cl.interest_amount)||0)/(parseInt(cl.loan_weeks)||12)), 0);
+    const totalEMI = centerClients.reduce((s,cl) => s+Math.round(((parseFloat(cl.balance)||0)+(parseFloat(cl.interest_amount)||0))/(parseInt(cl.loan_weeks)||12)), 0);
+    const totalPDue = centerClients.reduce((s,cl) => s+Math.round((parseFloat(cl.balance)||0)/(parseInt(cl.loan_weeks)||12)), 0);
+    const totalIDue = centerClients.reduce((s,cl) => s+Math.round((parseFloat(cl.interest_amount)||0)/(parseInt(cl.loan_weeks)||12)), 0);
 
     let rows = '';
-    clients.forEach((cl, i) => {
+    centerClients.forEach((cl, i) => {
       const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
       const loanAmt = parseFloat(cl.balance)||0;
       const intAmt = parseFloat(cl.interest_amount)||0;
@@ -2941,7 +3070,7 @@ function printMeetingSheet() {
       </div>
       <table class="info-table">
         <tr>
-          <td style="width:33%">${clients[0]?.center_name||''} / ${clients[0]?.center_code||''}</td>
+          <td style="width:33%">${centerClients[0]?.center_name||''} / ${centerClients[0]?.center_code||''}</td>
           <td style="width:34%;text-align:center"><b>${day}</b></td>
           <td style="width:33%">${dayShort.toUpperCase()}</td>
         </tr>
@@ -2951,12 +3080,12 @@ function printMeetingSheet() {
           <td>Time: <b>9:00 AM</b></td>
         </tr>
         <tr>
-          <td>L.C.: <b>${clients[0]?.loan_cycle||'-'}</b></td>
+          <td>L.C.: <b>${centerClients[0]?.loan_cycle||'-'}</b></td>
           <td style="text-align:center">Members: <b>${clients.length}</b></td>
           <td>T.Outstanding: <b style="color:red">₹${fmt(totalOutstanding)}</b></td>
         </tr>
         <tr>
-          <td>Center ID: <b>${clients[0]?.center_code||'-'}</b></td>
+          <td>Center ID: <b>${centerClients[0]?.center_code||'-'}</b></td>
           <td>Receipt No:</td>
           <td>Staff: <b>${currentProfile?.name||'Admin'}</b></td>
         </tr>
@@ -3025,7 +3154,8 @@ function printMeetingSheet() {
         </tr>
       </table>
     </div>`;
-  });
+    }); // end centerMap forEach
+  }); // end days forEach
 
   if (!pagesHtml) { showToast('कोई meeting scheduled नहीं!', 'error'); return; }
 
@@ -3154,11 +3284,11 @@ function showMeetingDay() {
 
             <!-- Center Info Grid -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;margin-bottom:10px;background:#f8fafc;padding:10px;border-radius:8px">
-              <div><strong>Center:</strong> ${clients[0]?.center_name||'—'}</div>
+              <div><strong>Center:</strong> ${centerClients[0]?.center_name||'—'}</div>
               <div><strong>CDS Date:</strong> ${todayStr}</div>
-              <div><strong>L.C.:</strong> ${clients[0]?.loan_cycle||'—'}</div>
+              <div><strong>L.C.:</strong> ${centerClients[0]?.loan_cycle||'—'}</div>
               <div><strong>Day:</strong> ${dayShort} ${isToday?'⭐ TODAY':''}</div>
-              <div><strong>Center ID:</strong> ${clients[0]?.center_code||'—'}</div>
+              <div><strong>Center ID:</strong> ${centerClients[0]?.center_code||'—'}</div>
               <div><strong>Members:</strong> ${clients.length}</div>
               <div><strong>Time:</strong> 9:00 AM</div>
               <div><strong>T.Outstanding:</strong> <span style="color:var(--danger);font-weight:700">₹${fmt(totalOutstanding)}</span></div>
@@ -3268,39 +3398,34 @@ function showMeetingDay() {
   `;
 }
 // ── REVERSE PAYMENT (Admin only) ──────────
-async function reversePayment(paymentId, amount, type) {
+async function deletePayment(paymentId) {
   if (currentProfile?.role !== 'admin') {
     showToast('Admin only! / सिर्फ Admin', 'error');
     return;
   }
 
-  const reason = prompt('Reversal का कारण बताएं:\n(Reason for reversal)', 'Wrong entry reversed');
-  if (!reason) return;
+  const confirmed = confirm('क्या आप इस payment को delete करना चाहते हैं?\n(Payment history में दिखेगी लेकिन balance में count नहीं होगी)');
+  if (!confirmed) return;
 
   try {
-    // Create reverse entry (opposite type)
-    const reverseType = type === 'credit' ? 'debit' : 'credit';
-    const today = new Date().toISOString().slice(0,10);
+    const p = allPayments.find(x => x.id === paymentId);
+    if (!p) return;
 
-    const { data, error } = await db.from('payments').insert({
-      client_id: allPayments.find(p => p.id === paymentId)?.client_id,
-      amount: parseFloat(amount),
-      type: reverseType,
-      description: '↩️ Reversal: ' + reason,
-      date: today,
-      created_by: currentUser.id
-    }).select().single();
+    const { error } = await db.from('payments').update({
+      description: '🗑️ DELETED: ' + (p.description || 'Payment')
+    }).eq('id', paymentId);
 
     if (error) throw error;
 
-    allPayments.unshift(data);
-    showToast('✅ Reversal entry added!', 'success');
+    // Update locally
+    const idx = allPayments.findIndex(x => x.id === paymentId);
+    if (idx !== -1) allPayments[idx].description = '🗑️ DELETED: ' + (p.description || 'Payment');
 
-    // Refresh detail view
+    showToast('🗑️ Payment deleted! History में दिखेगी।', 'success');
     if (activeClientId) openDetail(activeClientId);
 
   } catch(err) {
-    console.error('Reverse error:', err);
-    showToast('Reversal failed! Try again', 'error');
+    console.error('Delete error:', err);
+    showToast('Delete failed! Try again', 'error');
   }
 }
