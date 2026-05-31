@@ -1494,8 +1494,11 @@ async function submitRenewal(clientId) {
   const interest = parseFloat(document.getElementById('rn-interest')?.value) || 0;
   const weeks    = parseInt(document.getElementById('rn-weeks')?.value) || 12;
   const cycle    = document.getElementById('rn-cycle')?.value || '2nd';
-  const loanDate = document.getElementById('rn-loan-date')?.value || '';
-  const emiDate  = document.getElementById('rn-emi-date')?.value || '';
+  const loanDateRaw = document.getElementById('rn-loan-date')?.value || '';
+  const emiDateRaw  = document.getElementById('rn-emi-date')?.value || '';
+  // Ensure YYYY-MM-DD format
+  const loanDate = loanDateRaw ? new Date(loanDateRaw).toISOString().slice(0,10) : null;
+  const emiDate  = emiDateRaw  ? new Date(emiDateRaw).toISOString().slice(0,10)  : null;
 
   if (!balance) { showToast('Loan amount daalo!', 'error'); return; }
 
@@ -3422,6 +3425,7 @@ async function deletePayment(paymentId) {
     if (idx !== -1) allPayments[idx].description = '🗑️ DELETED: ' + (p.description || 'Payment');
 
     showToast('🗑️ Payment deleted! History में दिखेगी।', 'success');
+    await loadPayments(); // Reload from Supabase
     if (activeClientId) openDetail(activeClientId);
 
   } catch(err) {
