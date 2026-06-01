@@ -1002,11 +1002,42 @@ async function openDetail(id) {
       <div>
         <div style="font-size:18px;font-weight:700;color:var(--navy)">${c.name}</div>
         <div style="font-size:11px;color:var(--muted)">${emp ? 'Assigned: '+emp.name : ''}</div>
-        <span class="status-badge ${{active:'status-active',inactive:'status-inactive',vip:'status-vip'}[c.status]||'status-active'}">${{active:'Active',inactive:'Inactive',vip:'⭐ VIP'}[c.status]||'Active'}</span>
+        <span class="status-badge ${{active:'status-active',inactive:'status-inactive',vip:'status-vip',closed:'status-inactive'}[c.status]||'status-active'}">${{active:'Active',inactive:'Inactive',vip:'⭐ VIP',closed:'🔒 Closed'}[c.status]||'Active'}</span>
       </div>
     </div>
 
-    <div class="big-balance">
+    ${c.status === 'closed' ? `
+    <!-- CLOSED ACCOUNT SECTION -->
+    <div style="background:#f0fdf4;border:2px solid #22c55e;border-radius:12px;padding:16px;margin:12px 0;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">🎉</div>
+      <div style="font-size:15px;font-weight:800;color:#16a34a">Loan Complete!</div>
+      <div style="font-size:12px;color:#166534;margin-bottom:12px">सभी किस्त जमा हो गई — Account Closed</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;text-align:left">
+        <div style="background:white;border-radius:8px;padding:8px">
+          <div style="font-size:10px;color:var(--muted)">Loan Amount</div>
+          <div style="font-weight:700;color:var(--navy)">₹${fmt(parseFloat(c.balance)||0)}</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:8px">
+          <div style="font-size:10px;color:var(--muted)">Interest</div>
+          <div style="font-weight:700;color:var(--navy)">₹${fmt(parseFloat(c.interest_amount)||0)}</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:8px">
+          <div style="font-size:10px;color:var(--muted)">Loan Cycle</div>
+          <div style="font-weight:700;color:var(--navy)">${c.loan_cycle||'1st'}</div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:8px">
+          <div style="font-size:10px;color:var(--muted)">Tenure</div>
+          <div style="font-weight:700;color:var(--navy)">${c.loan_weeks||12} Weeks</div>
+        </div>
+      </div>
+      <button onclick="openRenewModal('${c.id}')" style="width:100%;padding:12px;background:linear-gradient(135deg,#e65c00,#f9d423);color:white;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:8px">
+        🔄 नया Loan / Renew Loan
+      </button>
+      <button onclick="showClientPassbook('${c.id}')" style="width:100%;padding:10px;background:var(--navy);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">
+        📒 Past Loan History देखें
+      </button>
+    </div>
+    ` : ''}    <div class="big-balance">
       <div class="label">Balance / बैलेंस</div>
       <div class="amount" style="color:${bal>=0?'var(--success)':'var(--danger)'}">₹${fmt(bal)}</div>
     </div>
@@ -2942,7 +2973,8 @@ function showClientPassbook(clientId) {
               }
             });
 
-            // Show remaining empty rows
+            // Show remaining empty rows — only if outstanding > 0
+            if (runningOutstanding > 0) {
             let outCounter = runningOutstanding;
             for (let i = weekNum + 1; i <= totalWeeks; i++) {
               outCounter = Math.max(0, outCounter - weeklyEMI);
@@ -2960,7 +2992,8 @@ function showClientPassbook(clientId) {
                   <td style="padding:6px 8px;border-right:1px solid var(--border)"></td>
                   <td style="padding:6px 8px"></td>
                 </tr>`);
-            }
+            } // end empty rows loop
+            } // end if outstanding > 0
             return rows.join('');
           })()}
         </tbody>
