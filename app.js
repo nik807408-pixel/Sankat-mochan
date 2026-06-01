@@ -1573,10 +1573,19 @@ async function submitRenewal(clientId) {
 
     if (error) throw error;
 
+    // Mark client as active after renewal
+    await db.from('clients').update({ status: 'active' }).eq('id', clientId);
+
     document.getElementById('renew-modal')?.remove();
     showToast(`✅ Loan Renewed! ${cycle} cycle — ₹${fmt(weeklyEMI)}/week`, 'success');
     await loadAll();
-    showClientPassbook(clientId);
+
+    // Show More tab → Passbook with new loan
+    showPage('more');
+    setTimeout(() => {
+      switchMoreTab('passbook', document.querySelector('[onclick*="passbook"]'));
+      setTimeout(() => showClientPassbook(clientId), 300);
+    }, 300);
 
   } catch(err) {
     console.error('Renewal error:', err);
