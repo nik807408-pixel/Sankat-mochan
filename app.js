@@ -393,6 +393,7 @@ function renderClientsPage(c) {
       <button class="tab" onclick="filterByStatus('active',this)">Active (${allClients.filter(x=>x.status==='active').length})</button>
       <button class="tab" onclick="filterByStatus('vip',this)">VIP (${allClients.filter(x=>x.status==='vip').length})</button>
       <button class="tab" onclick="filterByStatus('inactive',this)">Inactive (${allClients.filter(x=>x.status==='inactive').length})</button>
+      <button class="tab" onclick="filterByStatus('closed',this)" style="color:#dc2626">🔒 Closed (${allClients.filter(x=>x.status==='closed').length})</button>
     </div>
     <div id="client-list">${allClients.map(clientCard).join('') || emptyState('👤','No clients yet / अभी कोई ग्राहक नहीं')}</div>
   `;
@@ -419,8 +420,8 @@ function filterClients() {
 function clientCard(c) {
   const bal = parseFloat(c.balance) || 0;
   const balClass = bal > 0 ? 'bal-pos' : bal < 0 ? 'bal-neg' : 'bal-zero';
-  const statusMap = { active:'status-active', inactive:'status-inactive', vip:'status-vip' };
-  const statusLabel = { active:'Active', inactive:'Inactive', vip:'⭐ VIP' };
+  const statusMap = { active:'status-active', inactive:'status-inactive', vip:'status-vip', closed:'status-inactive' };
+  const statusLabel = { active:'Active', inactive:'Inactive', vip:'⭐ VIP', closed:'🔒 Closed' };
   const photoHtml = c.photo_url
     ? `<img src="${c.photo_url}" class="avatar-img" onerror="this.style.display='none'"/>`
     : '';
@@ -1142,6 +1143,29 @@ async function savePayment() {
   closeModal('pay-modal');
   showToast('Payment added! / भुगतान जोड़ा!', 'success');
   await loadAll();
+
+  // Auto-close check — outstanding ₹0 hone pe
+  const cl = allClients.find(c => c.id === activeClientId);
+  if (cl) {
+    const totalLoanInterest = (parseFloat(cl.balance)||0) + (parseFloat(cl.interest_amount)||0);
+    const totalPaid = allPayments
+      .filter(p => p.client_id === activeClientId && p.type === 'credit' && !(p.description||'').includes('Reversal') && !(p.description||'').includes('DELETED'))
+      .reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+    const debitRev = allPayments
+      .filter(p => p.client_id === activeClientId && p.type === 'debit' && (p.description||'').includes('Reversal'))
+      .reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+    const outstanding = Math.max(0, totalLoanInterest - totalPaid + debitRev);
+
+    if (outstanding <= 0 && cl.status !== 'closed') {
+      const confirmClose = confirm(`🎉 Loan पूरा हो गया!\n\n${cl.name} का account CLOSE करें?`);
+      if (confirmClose) {
+        await db.from('clients').update({ status: 'closed' }).eq('id', activeClientId);
+        await loadAll();
+        showToast(`✅ ${cl.name} का account close हो गया!`, 'success');
+      }
+    }
+  }
+
   openDetail(activeClientId);
 }
 
@@ -2833,6 +2857,7 @@ function showClientPassbook(clientId) {
         <div><span style="opacity:.6">Loan No.:</span> <strong>${cl.loan_id||cl.customer_id||'—'}</strong></div>
         <div><span style="opacity:.6">DB Date:</span> <strong>${cl.loan_date||cl.first_emi_date||'—'}</strong></div>
         <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
+        <div><span style="opacity:.6">Interest:</span> <strong style="color:#FFD700">₹${fmt(interest)}</strong></div>
         <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
         <div><span style="opacity:.6">Loan Cycle:</span> <strong>${cl.loan_cycle||'1st'}</strong></div>
         <div><span style="opacity:.6">Tenure:</span> <strong>${totalWeeks} Weeks</strong></div>
