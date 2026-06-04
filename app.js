@@ -2862,12 +2862,20 @@ function passbookOpen(el) {
 }
 
 
-function showClientPassbook(clientId) {
+function showClientPassbook(clientId, showFullHistory = false) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
-  const payments = allPayments.filter(p => p.client_id === clientId && !(p.description||'').includes('DELETED') && (p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal'))))
-    .sort((a,b) => new Date(a.date) - new Date(b.date));
+  // Only show payments from current loan cycle (after loan_date)
+  const loanStartDate = cl.loan_date || cl.first_emi_date || null;
+  const payments = allPayments.filter(p => {
+    if (p.client_id !== clientId) return false;
+    if ((p.description||'').includes('DELETED')) return false;
+    if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
+    // Filter by current loan cycle start date (unless full history)
+    if (!showFullHistory && loanStartDate && p.date && p.date < loanStartDate) return false;
+    return true;
+  }).sort((a,b) => new Date(a.date) - new Date(b.date));
 
   const loan = parseFloat(cl.balance) || 0;
   const interest = parseFloat(cl.interest_amount) || 0;
@@ -2879,10 +2887,14 @@ function showClientPassbook(clientId) {
 
   const c = document.getElementById('main-content');
   c.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="showPassbook()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:var(--muted)">← Back</button>
       <div style="font-size:16px;font-weight:700;color:var(--navy)">📒 ${cl.name}</div>
-      <button onclick="printPassbook('${clientId}')" style="margin-left:auto;background:var(--navy);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Print</button>
+      <button onclick="showClientPassbook('${clientId}', ${!showFullHistory})" 
+        style="margin-left:auto;background:${showFullHistory?'#7c3aed':'#f3f4f6'};color:${showFullHistory?'white':'var(--navy)'};border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">
+        ${showFullHistory ? '📋 Current Cycle' : '📚 Full History'}
+      </button>
+      <button onclick="printPassbook('${clientId}')" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Print</button>
     </div>
 
     <!-- Client Info Card -->
