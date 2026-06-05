@@ -972,11 +972,17 @@ async function saveClient() {
 
 async function deleteClient() {
   if (!confirm('Delete this client? / इस ग्राहक को हटाएं?')) return;
-  await db.from('clients').delete().eq('id', editingClientId);
-  closeModal('client-modal');
-  showToast('Deleted / हटाया गया');
-  await loadAll();
-  showPage(currentPage);
+  try {
+    const { error } = await db.from('clients').delete().eq('id', editingClientId);
+    if (error) throw error;
+    closeModal('client-modal');
+    showToast('✅ Deleted / हटाया गया', 'success');
+    await loadAll();
+    showPage(currentPage);
+  } catch(err) {
+    console.error('Delete error:', err);
+    showToast('Delete failed: ' + err.message, 'error');
+  }
 }
 
 // ── DETAIL ────────────────────────────────
@@ -1563,6 +1569,13 @@ async function submitRenewal(clientId) {
     // Pehle purana loan history mein save karo
     const oldClient = allClients.find(c => c.id === clientId);
     if (oldClient) {
+      // Count real payments for this cycle
+      const cyclePaymentCount = allPayments.filter(p => 
+        p.client_id === clientId && 
+        p.type === 'credit' && 
+        !(p.description||'').includes('DELETED')
+      ).length;
+      
       await db.from('loan_history').insert({
         client_id: clientId,
         loan_cycle: oldClient.loan_cycle || '1st',
@@ -1572,7 +1585,8 @@ async function submitRenewal(clientId) {
         loan_date: oldClient.loan_date || null,
         first_emi_date: oldClient.first_emi_date || null,
         closed_date: new Date().toISOString().slice(0,10),
-        closed_at: new Date().toISOString()
+        closed_at: new Date().toISOString(),
+        payment_count: cyclePaymentCount
       });
     }
 
@@ -3119,29 +3133,25 @@ async function showLoanHistoryPassbook(clientId, historyIndex) {
   const h = historyList[historyIndex];
   if (!h) return;
 
-  // Use closed_at timestamps for precise filtering
-  const startTs = h.closed_at || (h.loan_date ? h.loan_date + 'T00:00:00Z' : null);
-  const nextH = historyList[historyIndex + 1];
-  const endTs = nextH 
-    ? (nextH.closed_at || (nextH.loan_date ? nextH.loan_date + 'T00:00:00Z' : null))
-    : null;
-
-  // Also get prev history for start boundary
-  const prevH = historyIndex > 0 ? historyList[historyIndex - 1] : null;
-  const prevEndTs = prevH
-    ? (prevH.closed_at || (prevH.loan_date ? prevH.loan_date + 'T00:00:00Z' : null))
-    : null;
-
-  const payments = allPayments.filter(p => {
+  // Get ALL real payments for this client in chronological order
+  const allClientPayments = allPayments.filter(p => {
     if (p.client_id !== clientId) return false;
     if ((p.description||'').includes('DELETED')) return false;
     if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
-    // Use created_at for timestamp comparison if available
-    const pTs = p.created_at || (p.date + 'T00:00:00Z');
-    if (prevEndTs && pTs < prevEndTs) return false;
-    if (startTs && pTs >= startTs) return false;
     return true;
   }).sort((a,b) => new Date(a.created_at||a.date) - new Date(b.created_at||b.date));
+
+  // Calculate cumulative payment counts from history
+  let startCount = 0;
+  for (let i = 0; i < historyIndex; i++) {
+    startCount += parseInt(historyList[i].payment_count) || 0;
+  }
+  const endCount = startCount + (parseInt(h.payment_count) || 0);
+  
+  // Slice payments for this cycle
+  const payments = endCount > startCount 
+    ? allClientPayments.slice(startCount, endCount)
+    : allClientPayments.slice(startCount, startCount + (parseInt(h.loan_weeks)||12));
 
   const loan = parseFloat(h.balance) || 0;
   const interest = parseFloat(h.interest_amount) || 0;
