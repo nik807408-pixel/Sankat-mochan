@@ -973,6 +973,11 @@ async function saveClient() {
 async function deleteClient() {
   if (!confirm('Delete this client? / इस ग्राहक को हटाएं?')) return;
   try {
+    // Pehle loan_history delete karo
+    await db.from('loan_history').delete().eq('client_id', editingClientId);
+    // Phir payments delete karo
+    await db.from('payments').delete().eq('client_id', editingClientId);
+    // Ab client delete karo
     const { error } = await db.from('clients').delete().eq('id', editingClientId);
     if (error) throw error;
     closeModal('client-modal');
