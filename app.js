@@ -1560,6 +1560,21 @@ async function submitRenewal(clientId) {
   const weeklyEMI = Math.round((balance + interest) / weeks);
 
   try {
+    // Pehle purana loan history mein save karo
+    const oldClient = allClients.find(c => c.id === clientId);
+    if (oldClient) {
+      await db.from('loan_history').insert({
+        client_id: clientId,
+        loan_cycle: oldClient.loan_cycle || '1st',
+        balance: parseFloat(oldClient.balance) || 0,
+        interest_amount: parseFloat(oldClient.interest_amount) || 0,
+        loan_weeks: parseInt(oldClient.loan_weeks) || 12,
+        loan_date: oldClient.loan_date || null,
+        first_emi_date: oldClient.first_emi_date || null,
+        closed_date: new Date().toISOString().slice(0,10)
+      });
+    }
+
     const { error } = await db.from('clients').update({
       balance,
       interest_amount: interest,
@@ -1580,12 +1595,14 @@ async function submitRenewal(clientId) {
     showToast(`✅ Loan Renewed! ${cycle} cycle — ₹${fmt(weeklyEMI)}/week`, 'success');
     await loadAll();
 
-    // Show More tab → Passbook with new loan
-    showPage('more');
+    // Navigate to passbook directly
+    showPage('invoices');
     setTimeout(() => {
-      switchMoreTab('passbook', document.querySelector('[onclick*="passbook"]'));
-      setTimeout(() => showClientPassbook(clientId), 300);
-    }, 300);
+      moreTab = 'passbook';
+      const c = document.getElementById('more-content');
+      if (c) c.innerHTML = renderPassbookTab();
+      setTimeout(() => showClientPassbook(clientId), 200);
+    }, 400);
 
   } catch(err) {
     console.error('Renewal error:', err);
@@ -2866,39 +2883,57 @@ function showClientPassbook(clientId, showFullHistory = false) {
   const cl = allClients.find(x => x.id === clientId);
   if (!cl) return;
 
-  // Only show payments from current loan cycle (after loan_date)
-  const loanStartDate = cl.loan_date || cl.first_emi_date || null;
-  const payments = allPayments.filter(p => {
-    if (p.client_id !== clientId) return false;
-    if ((p.description||'').includes('DELETED')) return false;
-    if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
-    // Filter by current loan cycle start date (unless full history)
-    if (!showFullHistory && loanStartDate && p.date && p.date < loanStartDate) return false;
-    return true;
-  }).sort((a,b) => new Date(a.date) - new Date(b.date));
+  // Load loan history for this client
+  db.from('loan_history').select('*').eq('client_id', clientId).order('created_at', {ascending: true}).then(({ data: history }) => {
+    const historyList = history || [];
 
-  const loan = parseFloat(cl.balance) || 0;
-  const interest = parseFloat(cl.interest_amount) || 0;
-  const totalWeeks = parseInt(cl.loan_weeks) || 12;
-  const weeklyEMI = Math.round((loan + interest) / totalWeeks);
-  const weeklyPrincipal = Math.round(loan / totalWeeks);
-  const weeklyInterest = weeklyEMI - weeklyPrincipal;
-  const totalDuePerWeek = cl.emi_amount || weeklyEMI;
+    // Only show payments from current loan cycle (after loan_date)
+    const loanStartDate = cl.loan_date || cl.first_emi_date || null;
+    const payments = allPayments.filter(p => {
+      if (p.client_id !== clientId) return false;
+      if ((p.description||'').includes('DELETED')) return false;
+      if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
+      if (!showFullHistory && loanStartDate && p.date && p.date < loanStartDate) return false;
+      return true;
+    }).sort((a,b) => new Date(a.date) - new Date(b.date));
 
-  const c = document.getElementById('main-content');
-  c.innerHTML = `
+    const c = document.getElementById('main-content');
+    if (!c) return;
+
+    // History tabs
+    const historyTabs = historyList.length > 0 ? `
+    <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px">
+      ${historyList.map((h,i) => `
+        <button onclick="showLoanHistoryPassbook('${clientId}', ${i})" 
+          style="white-space:nowrap;padding:5px 10px;background:#f3f4f6;border:1px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted)">
+          📋 ${h.loan_cycle||'Past'}
+        </button>`).join('')}
+      <button onclick="showClientPassbook('${clientId}', false)" 
+        style="white-space:nowrap;padding:5px 10px;background:var(--navy);border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:white">
+        📒 Current (${cl.loan_cycle||'Latest'})
+      </button>
+    </div>` : '';
+
+    c.innerHTML = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <button onclick="showPassbook()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:var(--muted)">← Back</button>
       <div style="font-size:16px;font-weight:700;color:var(--navy)">📒 ${cl.name}</div>
-      <button onclick="showClientPassbook('${clientId}', ${!showFullHistory})" 
-        style="margin-left:auto;background:${showFullHistory?'#7c3aed':'#f3f4f6'};color:${showFullHistory?'white':'var(--navy)'};border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">
-        ${showFullHistory ? '📋 Current Cycle' : '📚 Full History'}
-      </button>
-      <button onclick="printPassbook('${clientId}')" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Print</button>
+      <button onclick="printPassbook('${clientId}')" style="margin-left:auto;background:var(--navy);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Print</button>
     </div>
 
+    ${historyTabs}`;
+
+    // Variables for passbook calculation
+    const loan = parseFloat(cl.balance) || 0;
+    const interest = parseFloat(cl.interest_amount) || 0;
+    const totalWeeks = parseInt(cl.loan_weeks) || 12;
+    const weeklyEMI = Math.round((loan + interest) / totalWeeks);
+    const weeklyPrincipal = Math.round(loan / totalWeeks);
+    const weeklyInterest = weeklyEMI - weeklyPrincipal;
+    const totalDuePerWeek = cl.emi_amount || weeklyEMI;
+
+    c.innerHTML += `
     <!-- Client Info Card -->
-    <div style="background:var(--navy);border-radius:14px;padding:14px;margin-bottom:14px;color:white">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
         <div><span style="opacity:.6">शाखा कार्यालय:</span> <strong>बलिया</strong></div>
         <div><span style="opacity:.6">केंद्र शाखा:</span> <strong>${cl.center_name||'—'}</strong></div>
@@ -3049,6 +3084,115 @@ function showClientPassbook(clientId, showFullHistory = false) {
       <div style="font-size:13px;color:var(--navy)">${cl.notes||'—'}</div>
     </div>
   `;
+  }); // end db.from('loan_history').then()
+}
+
+// ── LOAN HISTORY PASSBOOK ─────────────────────────────────────────────────
+async function showLoanHistoryPassbook(clientId, historyIndex) {
+  const cl = allClients.find(x => x.id === clientId);
+  if (!cl) return;
+
+  const { data: history } = await db.from('loan_history').select('*').eq('client_id', clientId).order('created_at', {ascending: true});
+  const historyList = history || [];
+  const h = historyList[historyIndex];
+  if (!h) return;
+
+  // Get payments between this loan's start and next loan's start
+  const startDate = h.loan_date || h.first_emi_date || '';
+  const nextH = historyList[historyIndex + 1];
+  const endDate = nextH ? (nextH.loan_date || nextH.first_emi_date || '') : cl.loan_date || '';
+
+  const payments = allPayments.filter(p => {
+    if (p.client_id !== clientId) return false;
+    if ((p.description||'').includes('DELETED')) return false;
+    if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
+    if (startDate && p.date < startDate) return false;
+    if (endDate && p.date >= endDate) return false;
+    return true;
+  }).sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  const loan = parseFloat(h.balance) || 0;
+  const interest = parseFloat(h.interest_amount) || 0;
+  const totalWeeks = parseInt(h.loan_weeks) || 12;
+  const weeklyEMI = Math.round((loan + interest) / totalWeeks);
+  const weeklyPrincipal = Math.round(loan / totalWeeks);
+  const weeklyInterest = weeklyEMI - weeklyPrincipal;
+  const totalPaid = payments.filter(p=>p.type==='credit'&&!(p.description||'').includes('Reversal')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+  const c = document.getElementById('main-content');
+  if (!c) return;
+
+  // History tabs
+  const historyTabs = `
+  <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px">
+    ${historyList.map((ht,i) => `
+      <button onclick="showLoanHistoryPassbook('${clientId}', ${i})" 
+        style="white-space:nowrap;padding:5px 10px;background:${i===historyIndex?'#7c3aed':'#f3f4f6'};border:${i===historyIndex?'none':'1px solid var(--border)'};border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;color:${i===historyIndex?'white':'var(--muted)'}">
+        📋 ${ht.loan_cycle||'Past'}
+      </button>`).join('')}
+    <button onclick="showClientPassbook('${clientId}', false)" 
+      style="white-space:nowrap;padding:5px 10px;background:#f3f4f6;border:1px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;color:var(--navy)">
+      📒 Current (${cl.loan_cycle||'Latest'})
+    </button>
+  </div>`;
+
+  c.innerHTML = `
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <button onclick="showClientPassbook('${clientId}')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;color:var(--muted)">← Back</button>
+    <div style="font-size:16px;font-weight:700;color:var(--navy)">📋 ${cl.name} — ${h.loan_cycle||'Past'}</div>
+  </div>
+
+  ${historyTabs}
+
+  <!-- Header -->
+  <div style="background:var(--navy);border-radius:14px;padding:14px;margin-bottom:14px;color:white">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px">
+      <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
+      <div><span style="opacity:.6">Interest:</span> <strong style="color:#FFD700">₹${fmt(interest)}</strong></div>
+      <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
+      <div><span style="opacity:.6">Loan Cycle:</span> <strong>${h.loan_cycle||'—'}</strong></div>
+      <div><span style="opacity:.6">Tenure:</span> <strong>${totalWeeks} Weeks</strong></div>
+      <div><span style="opacity:.6">Status:</span> <strong style="color:#4ade80">✅ Closed</strong></div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div style="overflow-x:auto;background:white;border-radius:12px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:600px">
+      <thead>
+        <tr style="background:var(--navy);color:white">
+          <th style="padding:8px;border-right:1px solid #ffffff30">सप्ताह<br>Week</th>
+          <th style="padding:8px;border-right:1px solid #ffffff30">तारीख<br>Date</th>
+          <th style="padding:8px;border-right:1px solid #ffffff30">मूलधन<br>Principal</th>
+          <th style="padding:8px;border-right:1px solid #ffffff30">ब्याज<br>Interest</th>
+          <th style="padding:8px;border-right:1px solid #ffffff30">कुल देय<br>Total Due</th>
+          <th style="padding:8px;border-right:1px solid #ffffff30;color:#4ade80">प्राप्त<br>Received</th>
+          <th style="padding:8px;color:#f87171">बकाया<br>Outstanding</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${payments.map((p,i) => {
+          const amt = parseFloat(p.amount)||0;
+          return `<tr style="background:${i%2===0?'white':'#f8fafc'};border-bottom:1px solid var(--border)">
+            <td style="padding:7px 8px;text-align:center;font-weight:700;border-right:1px solid var(--border)">${i+1}</td>
+            <td style="padding:7px 8px;text-align:center;border-right:1px solid var(--border);font-size:11px">${p.date||'—'}</td>
+            <td style="padding:7px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyPrincipal)}</td>
+            <td style="padding:7px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyInterest)}</td>
+            <td style="padding:7px 8px;text-align:right;border-right:1px solid var(--border)">₹${fmt(weeklyEMI)}</td>
+            <td style="padding:7px 8px;text-align:right;border-right:1px solid var(--border);color:var(--success);font-weight:700">₹${fmt(amt)}</td>
+            <td style="padding:7px 8px;text-align:right;color:var(--danger);font-weight:700">₹${fmt(Math.max(0,(loan+interest)-payments.slice(0,i+1).filter(x=>x.type==='credit').reduce((s,x)=>s+(parseFloat(x.amount)||0),0)))}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background:#f0f4f8;font-weight:700;border-top:2px solid var(--navy)">
+          <td colspan="5" style="padding:8px 10px;color:var(--navy)">कुल / Total</td>
+          <td style="padding:8px 10px;text-align:right;color:var(--success)">₹${fmt(totalPaid)}</td>
+          <td style="padding:8px 10px;text-align:right;color:var(--success)">₹0.00 ✅</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
 }
 
 function printPassbook(clientId) {
