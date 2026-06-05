@@ -1571,7 +1571,8 @@ async function submitRenewal(clientId) {
         loan_weeks: parseInt(oldClient.loan_weeks) || 12,
         loan_date: oldClient.loan_date || null,
         first_emi_date: oldClient.first_emi_date || null,
-        closed_date: new Date().toISOString().slice(0,10)
+        closed_date: new Date().toISOString().slice(0,10),
+        closed_at: new Date().toISOString()
       });
     }
 
@@ -2887,15 +2888,36 @@ function showClientPassbook(clientId, showFullHistory = false) {
   db.from('loan_history').select('*').eq('client_id', clientId).order('created_at', {ascending: true}).then(({ data: history }) => {
     const historyList = history || [];
 
-    // Only show payments from current loan cycle (after loan_date)
+    // Only show payments from current loan cycle
+    // Use most recent loan_history closed_at for precise timestamp filtering
+    const lastHistory = historyList.length > 0 ? historyList[historyList.length - 1] : null;
+    const cycleStartTimestamp = lastHistory?.closed_at || null;
     const loanStartDate = cl.loan_date || cl.first_emi_date || null;
-    const payments = allPayments.filter(p => {
+
+    let payments = allPayments.filter(p => {
       if (p.client_id !== clientId) return false;
       if ((p.description||'').includes('DELETED')) return false;
       if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
-      if (!showFullHistory && loanStartDate && p.date && p.date < loanStartDate) return false;
+      if (!showFullHistory) {
+        // Use exact timestamp if available
+        if (cycleStartTimestamp && p.created_at) {
+          return p.created_at >= cycleStartTimestamp;
+        }
+        // Fallback to date
+        if (loanStartDate && p.date && p.date < loanStartDate) return false;
+      }
       return true;
     }).sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    // Fallback: show all if no payments in current cycle and no history
+    if (payments.length === 0 && historyList.length === 0) {
+      payments = allPayments.filter(p => {
+        if (p.client_id !== clientId) return false;
+        if ((p.description||'').includes('DELETED')) return false;
+        if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
+        return true;
+      }).sort((a,b) => new Date(a.date) - new Date(b.date));
+    }
 
     const c = document.getElementById('main-content');
     if (!c) return;
