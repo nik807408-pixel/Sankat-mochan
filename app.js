@@ -3119,19 +3119,29 @@ async function showLoanHistoryPassbook(clientId, historyIndex) {
   const h = historyList[historyIndex];
   if (!h) return;
 
-  // Get payments between this loan's start and next loan's start
-  const startDate = h.loan_date || h.first_emi_date || '';
+  // Use closed_at timestamps for precise filtering
+  const startTs = h.closed_at || (h.loan_date ? h.loan_date + 'T00:00:00Z' : null);
   const nextH = historyList[historyIndex + 1];
-  const endDate = nextH ? (nextH.loan_date || nextH.first_emi_date || '') : cl.loan_date || '';
+  const endTs = nextH 
+    ? (nextH.closed_at || (nextH.loan_date ? nextH.loan_date + 'T00:00:00Z' : null))
+    : null;
+
+  // Also get prev history for start boundary
+  const prevH = historyIndex > 0 ? historyList[historyIndex - 1] : null;
+  const prevEndTs = prevH
+    ? (prevH.closed_at || (prevH.loan_date ? prevH.loan_date + 'T00:00:00Z' : null))
+    : null;
 
   const payments = allPayments.filter(p => {
     if (p.client_id !== clientId) return false;
     if ((p.description||'').includes('DELETED')) return false;
     if (!(p.type === 'credit' || (p.type === 'debit' && (p.description||'').includes('Reversal')))) return false;
-    if (startDate && p.date < startDate) return false;
-    if (endDate && p.date >= endDate) return false;
+    // Use created_at for timestamp comparison if available
+    const pTs = p.created_at || (p.date + 'T00:00:00Z');
+    if (prevEndTs && pTs < prevEndTs) return false;
+    if (startTs && pTs >= startTs) return false;
     return true;
-  }).sort((a,b) => new Date(a.date) - new Date(b.date));
+  }).sort((a,b) => new Date(a.created_at||a.date) - new Date(b.created_at||b.date));
 
   const loan = parseFloat(h.balance) || 0;
   const interest = parseFloat(h.interest_amount) || 0;
