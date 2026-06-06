@@ -1644,7 +1644,11 @@ function renderCashBookTab() {
         <div style="font-size:15px;font-weight:700;color:var(--navy)">🧾 Cash Book</div>
         <div style="font-size:11px;color:var(--muted)">रोज़ाना नकद बही</div>
       </div>
-      <button onclick="printCashBook()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadCashBook()" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">📂 Load</button>
+        <button onclick="saveCashBook()" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">💾 Save</button>
+        <button onclick="printCashBook()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+      </div>
     </div>
 
     <!-- Header -->
@@ -1818,6 +1822,125 @@ function calcDenom() {
   if(elTotal) elTotal.textContent = '₹'+total.toLocaleString('en-IN');
 }
 
+// ── CASH BOOK SAVE/LOAD ────────────────────────────────────────────────────
+async function saveCashBook() {
+  const date = document.getElementById('cb-date')?.value;
+  if (!date) { showToast('Date daalo pehle!', 'error'); return; }
+
+  const gv = id => parseFloat(document.getElementById(id)?.value||0)||0;
+  const gi = id => parseInt(document.getElementById(id)?.value||0)||0;
+
+  const data = {
+    entry_date: date,
+    day_name: document.getElementById('cb-day')?.value || '',
+    opening: gv('cb-opening'), collection: gv('cb-coll'),
+    lpf: gv('cb-lpf'), lpc: gv('cb-lpc'),
+    prepayment: gv('cb-prepay'), overdue: gv('cb-od'),
+    disbursement: gv('cb-disb'), bank_deposit: gv('cb-bank'),
+    expense1: gv('cb-exp1'), expense2: gv('cb-exp2'), expense3: gv('cb-exp3'),
+    denom_2000: gi('denom-2000'), denom_500: gi('denom-500'),
+    denom_200: gi('denom-200'), denom_100: gi('denom-100'),
+    denom_50: gi('denom-50'), denom_20: gi('denom-20'),
+    denom_10: gi('denom-10'), denom_coin: gv('denom-coin'),
+    created_by: currentUser?.id || null
+  };
+
+  try {
+    const { error } = await db.from('cash_book').upsert(data, { onConflict: 'entry_date' });
+    if (error) throw error;
+    showToast('✅ Cash Book saved! / सेव हो गई', 'success');
+  } catch(err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+async function loadCashBook() {
+  const date = document.getElementById('cb-date')?.value;
+  if (!date) { showToast('Date select karo!', 'error'); return; }
+
+  try {
+    const { data, error } = await db.from('cash_book').select('*').eq('entry_date', date).single();
+    if (error || !data) { showToast('Is date ka koi record nahi!', 'error'); return; }
+
+    const sv = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||0; };
+    sv('cb-day', data.day_name); sv('cb-opening', data.opening);
+    sv('cb-coll', data.collection); sv('cb-lpf', data.lpf);
+    sv('cb-lpc', data.lpc); sv('cb-prepay', data.prepayment);
+    sv('cb-od', data.overdue); sv('cb-disb', data.disbursement);
+    sv('cb-bank', data.bank_deposit); sv('cb-exp1', data.expense1);
+    sv('cb-exp2', data.expense2); sv('cb-exp3', data.expense3);
+    sv('denom-2000', data.denom_2000); sv('denom-500', data.denom_500);
+    sv('denom-200', data.denom_200); sv('denom-100', data.denom_100);
+    sv('denom-50', data.denom_50); sv('denom-20', data.denom_20);
+    sv('denom-10', data.denom_10); sv('denom-coin', data.denom_coin);
+    calcCashBook(); calcDenom();
+    showToast('✅ Cash Book loaded!', 'success');
+  } catch(err) {
+    showToast('Load failed: ' + err.message, 'error');
+  }
+}
+
+// ── COLLECTION REGISTER SAVE/LOAD ─────────────────────────────────────────
+async function saveCollReg() {
+  const date = document.getElementById('cr-date')?.value;
+  if (!date) { showToast('Date daalo!', 'error'); return; }
+
+  // Get all rows data
+  const rows = document.querySelectorAll('#cr-tbody tr[data-center]');
+  const entries = [];
+
+  rows.forEach(row => {
+    const centerName = row.dataset.center || '';
+    const due = parseFloat(row.querySelector('[data-col="due"]')?.value||0)||0;
+    const pre = parseFloat(row.querySelector('[data-col="pre"]')?.value||0)||0;
+    const od = parseFloat(row.querySelector('[data-col="od"]')?.value||0)||0;
+    const lpf = parseFloat(row.querySelector('[data-col="lpf"]')?.value||0)||0;
+    const lpc = parseFloat(row.querySelector('[data-col="lpc"]')?.value||0)||0;
+    const remark = row.querySelector('input[placeholder]')?.value || '';
+    if (centerName) entries.push({
+      entry_date: date, center_name: centerName,
+      due_collection: due, pre_collection: pre,
+      od_collection: od, lpf, lpc,
+      total_collection: due+pre+od+lpf+lpc,
+      remark, created_by: currentUser?.id || null
+    });
+  });
+
+  if (!entries.length) { showToast('Koi data nahi!', 'error'); return; }
+
+  try {
+    await db.from('collection_register').delete().eq('entry_date', date);
+    const { error } = await db.from('collection_register').insert(entries);
+    if (error) throw error;
+    showToast(`✅ ${entries.length} centers saved!`, 'success');
+  } catch(err) {
+    showToast('Save failed: ' + err.message, 'error');
+  }
+}
+
+async function loadCollReg() {
+  const date = document.getElementById('cr-date')?.value;
+  if (!date) { showToast('Date select karo!', 'error'); return; }
+
+  try {
+    const { data, error } = await db.from('collection_register').select('*').eq('entry_date', date);
+    if (error || !data?.length) { showToast('Is date ka koi record nahi!', 'error'); return; }
+
+    data.forEach(row => {
+      const tr = document.querySelector(`#cr-tbody tr[data-center="${row.center_name}"]`);
+      if (!tr) return;
+      const sv = (col, val) => { const el = tr.querySelector(`[data-col="${col}"]`); if(el) el.value = val||0; };
+      sv('due', row.due_collection); sv('pre', row.pre_collection);
+      sv('od', row.od_collection); sv('lpf', row.lpf); sv('lpc', row.lpc);
+      const ri = tr.querySelector('input[placeholder="रिमार्क"]');
+      if (ri) ri.value = row.remark || '';
+    });
+    showToast('✅ Collection Register loaded!', 'success');
+  } catch(err) {
+    showToast('Load failed: ' + err.message, 'error');
+  }
+}
+
 function printCashBook() {
   const day = document.getElementById('cb-day')?.value || '';
   const date = document.getElementById('cb-date')?.value || '';
@@ -1876,7 +1999,9 @@ function renderCollectionRegTab() {
       </div>
       <div style="display:flex;gap:6px">
         <input type="date" id="cr-date" value="${today}" style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px">
-        <button onclick="printCollReg()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+        <button onclick="loadCollReg()" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">📂 Load</button>
+        <button onclick="saveCollReg()" style="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">💾 Save</button>
+        <button onclick="printCollReg()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
       </div>
     </div>
 
@@ -1906,7 +2031,7 @@ function renderCollectionRegTab() {
         </thead>
         <tbody id="cr-tbody">
           ${centers.length ? centers.map((ct,i)=>`
-          <tr style="${i%2===0?'background:#fafafa':'background:white'}">
+          <tr data-center="${ct.name}" style="${i%2===0?'background:#fafafa':'background:white'}">
             <td style="padding:6px;border:1px solid #ddd;font-weight:600">${ct.name}<br><span style="font-size:9px;color:var(--muted)">${ct.clients} clients</span></td>
             <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="due" value="${ct.due||''}" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
             <td style="border:1px solid #ddd;padding:3px"><input type="number" data-row="${i}" data-col="pre" value="${ct.pre||''}" oninput="calcCR(${i})" style="width:70px;border:none;font-size:11px;text-align:right;outline:none"></td>
