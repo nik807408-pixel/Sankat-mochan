@@ -1838,7 +1838,7 @@ function autoCalcLPFLPC() {
   if (lpcEl) lpcEl.value = lpc;
 }
 
-─
+// ── CASH BOOK SAVE/LOAD ────────────────────────────────────────────────────
 async function saveCashBook() {
   const date = document.getElementById('cb-date')?.value;
   if (!date) { showToast('Date daalo pehle!', 'error'); return; }
