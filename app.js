@@ -2271,7 +2271,13 @@ function renderMeetingTab() {
     html += '</tr></thead><tbody>';
 
     centerClients.forEach((cl, i) => {
-      const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
+      const loanStartDate = cl.loan_date || cl.first_emi_date || null;
+      const payments = allPayments.filter(p => {
+        if (p.client_id !== cl.id || p.type !== 'credit') return false;
+        if ((p.description||'').includes('DELETED')) return false;
+        if (loanStartDate && p.date && p.date < loanStartDate) return false;
+        return true;
+      });
       const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
       const loanAmt = parseFloat(cl.balance)||0;
       const intAmt = parseFloat(cl.interest_amount)||0;
@@ -3452,7 +3458,13 @@ function printMeetingSheet() {
 
     let rows = '';
     centerClients.forEach((cl, i) => {
-      const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
+      const loanStartDate = cl.loan_date || cl.first_emi_date || null;
+      const payments = allPayments.filter(p => {
+        if (p.client_id !== cl.id || p.type !== 'credit') return false;
+        if ((p.description||'').includes('DELETED')) return false;
+        if (loanStartDate && p.date && p.date < loanStartDate) return false;
+        return true;
+      });
       const loanAmt = parseFloat(cl.balance)||0;
       const intAmt = parseFloat(cl.interest_amount)||0;
       const outP = Math.max(0, loanAmt - payments.length * Math.round(loanAmt/(parseInt(cl.loan_weeks)||12)));
@@ -3733,14 +3745,20 @@ function showMeetingDay() {
                 </thead>
                 <tbody>
                   ${centerClients.map((cl, i) => {
-                    const payments = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit');
+                    const loanStartDate = cl.loan_date || cl.first_emi_date || null;
+                    const payments = allPayments.filter(p => {
+                      if (p.client_id !== cl.id || p.type !== 'credit') return false;
+                      if ((p.description||'').includes('DELETED')) return false;
+                      if (loanStartDate && p.date && p.date < loanStartDate) return false;
+                      return true;
+                    });
                     const totalPaid = payments.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
                     const loanAmt = parseFloat(cl.balance)||0;
                     const intAmt = parseFloat(cl.interest_amount)||0;
                     const totalDue = loanAmt + intAmt;
                     const outstanding = Math.max(0, totalDue - totalPaid);
-                    const outstandingP = Math.max(0, loanAmt - payments.filter(p=>p.client_id===cl.id).length * Math.round(loanAmt/(parseInt(cl.loan_weeks)||12)));
-                    const outstandingI = Math.max(0, intAmt - payments.filter(p=>p.client_id===cl.id).length * Math.round(intAmt/(parseInt(cl.loan_weeks)||12)));
+                    const outstandingP = Math.max(0, loanAmt - payments.length * Math.round(loanAmt/(parseInt(cl.loan_weeks)||12)));
+                    const outstandingI = Math.max(0, intAmt - payments.length * Math.round(intAmt/(parseInt(cl.loan_weeks)||12)));
                     const weeklyEMI = Math.round(totalDue/(parseInt(cl.loan_weeks)||12));
                     const weeklyP = Math.round(loanAmt/(parseInt(cl.loan_weeks)||12));
                     const weeklyI = Math.round(intAmt/(parseInt(cl.loan_weeks)||12));
