@@ -497,6 +497,8 @@ function openEditClient(c) {
   if (document.getElementById('f-loan-cycle')) document.getElementById('f-loan-cycle').value = c.loan_cycle || '1st';
   if (document.getElementById('f-loan-weeks')) document.getElementById('f-loan-weeks').value = c.loan_weeks || '12';
   if (document.getElementById('f-loan-purpose')) document.getElementById('f-loan-purpose').value = c.loan_purpose || '';
+  if (document.getElementById('f-lpf')) document.getElementById('f-lpf').value = c.lpf || 500;
+  if (document.getElementById('f-lpc')) document.getElementById('f-lpc').value = c.lpc || Math.ceil((parseFloat(c.balance)||0) / 10000) * 500;
 
   // Photo
   const wrap = document.getElementById('photo-preview-wrap');
@@ -901,6 +903,8 @@ async function saveClient() {
     marital_status: document.getElementById('f-marital')?.value || 'unmarried',
     address2: v('f-address2'),
     interest_amount: parseFloat(v('f-interest')) || 0,
+    lpf: parseFloat(v('f-lpf')) || 500,
+    lpc: parseFloat(v('f-lpc')) || 0,
     finance_company: v('f-bank'),
     kyc_approved: document.getElementById('f-kyc-approved')?.value === 'true',
     center_name: v('f-center-name'),
@@ -1822,7 +1826,19 @@ function calcDenom() {
   if(elTotal) elTotal.textContent = '₹'+total.toLocaleString('en-IN');
 }
 
-// ── CASH BOOK SAVE/LOAD ────────────────────────────────────────────────────
+// ── LPF / LPC AUTO CALC ──────────────────────────────────────────────────
+function autoCalcLPFLPC() {
+  const balance = parseFloat(document.getElementById('f-balance')?.value) || 0;
+  const lpf = 500; // Fixed
+  const lpc = Math.ceil(balance / 10000) * 500; // ₹500 per ₹10,000
+
+  const lpfEl = document.getElementById('f-lpf');
+  const lpcEl = document.getElementById('f-lpc');
+  if (lpfEl) lpfEl.value = lpf;
+  if (lpcEl) lpcEl.value = lpc;
+}
+
+─
 async function saveCashBook() {
   const date = document.getElementById('cb-date')?.value;
   if (!date) { showToast('Date daalo pehle!', 'error'); return; }
@@ -3111,6 +3127,8 @@ function showClientPassbook(clientId, showFullHistory = false) {
         <div><span style="opacity:.6">DB Date:</span> <strong>${cl.loan_date||cl.first_emi_date||'—'}</strong></div>
         <div><span style="opacity:.6">Loan Amt:</span> <strong style="color:#FFD700">₹${fmt(loan)}</strong></div>
         <div><span style="opacity:.6">Interest:</span> <strong style="color:#FFD700">₹${fmt(interest)}</strong></div>
+        <div><span style="opacity:.6">LPF:</span> <strong style="color:#FFD700">₹${fmt(parseFloat(cl.lpf)||500)}</strong></div>
+        <div><span style="opacity:.6">LPC:</span> <strong style="color:#FFD700">₹${fmt(parseFloat(cl.lpc)||Math.ceil(loan/10000)*500)}</strong></div>
         <div><span style="opacity:.6">Weekly EMI:</span> <strong style="color:#FFD700">₹${fmt(weeklyEMI)}</strong></div>
         <div><span style="opacity:.6">Loan Cycle:</span> <strong>${cl.loan_cycle||'1st'}</strong></div>
         <div><span style="opacity:.6">Tenure:</span> <strong>${totalWeeks} Weeks</strong></div>
