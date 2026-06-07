@@ -1878,7 +1878,10 @@ async function loadCashBook() {
     const { data, error } = await db.from('cash_book').select('*').eq('entry_date', date).single();
     if (error || !data) { showToast('Is date ka koi record nahi!', 'error'); return; }
 
-    const sv = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||0; };
+    const sv = (id, val) => { 
+      const el = document.getElementById(id); 
+      if(el) { el.value = val||0; el.dispatchEvent(new Event('input')); }
+    };
     sv('cb-day', data.day_name); sv('cb-opening', data.opening);
     sv('cb-coll', data.collection); sv('cb-lpf', data.lpf);
     sv('cb-lpc', data.lpc); sv('cb-prepay', data.prepayment);
@@ -1889,7 +1892,8 @@ async function loadCashBook() {
     sv('denom-200', data.denom_200); sv('denom-100', data.denom_100);
     sv('denom-50', data.denom_50); sv('denom-20', data.denom_20);
     sv('denom-10', data.denom_10); sv('denom-coin', data.denom_coin);
-    calcCashBook(); calcDenom();
+    calcCashBook(); 
+    if (typeof calcDenom === 'function') calcDenom();
     showToast('✅ Cash Book loaded!', 'success');
   } catch(err) {
     showToast('Load failed: ' + err.message, 'error');
