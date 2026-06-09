@@ -2,8 +2,8 @@
 //  CONFIGURATION — Replace with your Supabase values
 //  supabase.com → Project Settings → API
 // ─────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://chaenhnaslkmzutmsumi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYWVuaG5hc2xrbXp1dG1zdW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzA2MjcsImV4cCI6MjA5MzYwNjYyN30.X-f-HPQzFMu7DivRZJz9y0Zx2DMjlh3trN66MWAhU1g';
+const SUPABASE_URL = 'https://oswbpddfbofoyddxdfej.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zd2JwZGRmYm9mb3lkZHhkZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MzA0NDUsImV4cCI6MjA5NTEwNjQ0NX0.Gem36jnT-m4I13k078tYxyxPfv_FLChfxgrMK4Kzk7o';
 // ─────────────────────────────────────────────────────────
 
 // ── HELPER FUNCTIONS ─────────────────────
@@ -46,10 +46,10 @@ window.addEventListener('load', async () => {
     document.getElementById('splash').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('splash').style.display = 'none';
-      session ? initApp(session.user) : showAuth();
+      initDemoApp();
     }, 500);
   }, 2000);
-  db.auth.onAuthStateChange((_e, s) => { if (!s) showAuth(); });
+  // demo mode
 });
 
 function showAuth() {
@@ -320,10 +320,11 @@ function renderDashboard(c) {
         </div>
       </div>
       <div id="ph-body" style="display:none;padding:12px">
-        <div style="margin-bottom:10px">
+        <div style="margin-bottom:10px;display:flex;gap:6px;align-items:center">
           <input type="text" id="ph-client-search" placeholder="🔍 Client name search करें..." 
             oninput="filterPaymentHistory(this.value)"
-            style="width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--navy);box-sizing:border-box">
+            style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--navy)">
+          <button id="mic-btn-ph-client-search" onclick="voiceSearch('ph-client-search', filterPaymentHistory)" style="padding:6px 10px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:14px;cursor:pointer">🎤</button>
         </div>
         ${!allPayments || allPayments.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">No payments yet</div>' :
         `<div style="overflow-x:auto">
@@ -536,6 +537,19 @@ function openAddClient() {
     populateAssign();
   }
   openModal('client-modal');
+  // Add mic to notes field
+  setTimeout(() => {
+    const notesEl = document.getElementById('f-notes');
+    if (notesEl && !document.getElementById('mic-btn-f-notes')) {
+      const micBtn = document.createElement('button');
+      micBtn.id = 'mic-btn-f-notes';
+      micBtn.type = 'button';
+      micBtn.textContent = '🎤 Note बोलें';
+      micBtn.style.cssText = 'margin-top:4px;padding:6px 12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:12px;cursor:pointer;width:100%';
+      micBtn.onclick = () => voiceNote('f-notes');
+      notesEl.parentNode.insertBefore(micBtn, notesEl.nextSibling);
+    }
+  }, 300);
 }
 
 function openEditClient(c) {
@@ -649,7 +663,7 @@ function sendOTPviaSMS() {
   const indiaPhone = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
 
   // SMS message
-  const msg = 'Sankat Mochan Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
+  const msg = 'Dhan Raksha Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
 
   // Open SMS app directly
   window.open('sms:+' + indiaPhone + '?body=' + encodeURIComponent(msg), '_blank');
@@ -682,7 +696,7 @@ function sendClientOTP() {
     `🙏 नमस्ते ${name} जी!
 
 ` +
-    `संकट मोचन Finance में आपका OTP है:
+    `धन रक्षा Finance में आपका OTP है:
 
 ` +
     `*${generatedOTP}*
@@ -693,7 +707,7 @@ function sendClientOTP() {
     `किसी को share न करें।
 
 ` +
-    `संकट मोचन Finance 🚩`
+    `धन रक्षा Finance 🚩`
   );
 
   const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -1228,6 +1242,34 @@ function openPayModal() {
   document.getElementById('pay-amt').value = '';
   document.getElementById('pay-type').value = 'credit';
   openModal('pay-modal');
+
+  // Add mic buttons dynamically
+  setTimeout(() => {
+    // Mic for amount
+    const amtEl = document.getElementById('pay-amt');
+    if (amtEl && !document.getElementById('mic-btn-pay-amt')) {
+      const micBtn = document.createElement('button');
+      micBtn.id = 'mic-btn-pay-amt';
+      micBtn.type = 'button';
+      micBtn.textContent = '🎤';
+      micBtn.title = 'Voice amount';
+      micBtn.style.cssText = 'margin-left:6px;padding:6px 10px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:14px;cursor:pointer;';
+      micBtn.onclick = () => voiceAmount('pay-amt');
+      amtEl.parentNode.insertBefore(micBtn, amtEl.nextSibling);
+    }
+    // Mic for description/notes
+    const descEl = document.getElementById('pay-desc');
+    if (descEl && !document.getElementById('mic-btn-pay-desc')) {
+      const micBtn2 = document.createElement('button');
+      micBtn2.id = 'mic-btn-pay-desc';
+      micBtn2.type = 'button';
+      micBtn2.textContent = '🎤';
+      micBtn2.title = 'Voice note';
+      micBtn2.style.cssText = 'margin-left:6px;padding:6px 10px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:14px;cursor:pointer;';
+      micBtn2.onclick = () => voiceNote('pay-desc');
+      descEl.parentNode.insertBefore(micBtn2, descEl.nextSibling);
+    }
+  }, 200);
 }
 
 async function savePayment() {
@@ -1485,7 +1527,10 @@ function renderEMITab() {
       </div>
     </div>
 
-    <input class="search-bar" id="emi-search" placeholder="🔍 ग्राहक खोजें..." oninput="filterEMIList()"/>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+      <input class="search-bar" id="emi-search" placeholder="🔍 ग्राहक खोजें..." oninput="filterEMIList()" style="flex:1;margin:0"/>
+      <button id="mic-btn-emi-search" onclick="voiceSearch('emi-search', filterEMIList)" style="padding:6px 10px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;font-size:14px;cursor:pointer">🎤</button>
+    </div>
 
     <div class="tabs" style="margin-bottom:12px">
       <button class="tab active" onclick="filterEMITab('all',this)">सभी</button>
@@ -1509,10 +1554,11 @@ function renderPassbookTab() {
   if (clients.length === 0) return emptyState('📒','No clients yet');
   
   let html = `
-  <div style="margin-bottom:12px">
+  <div style="margin-bottom:12px;display:flex;gap:6px;align-items:center">
     <input class="search-bar" id="passbook-search-more" placeholder="🔍 Client naam ya phone खोजें..." 
       oninput="filterPassbookMore(this.value)"
-      style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--navy);outline:none">
+      style="flex:1;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--navy);outline:none">
+    <button id="mic-btn-passbook-search-more" onclick="voiceSearch('passbook-search-more', filterPassbookMore)" style="padding:8px 12px;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;font-size:16px;cursor:pointer">🎤</button>
   </div>
   <div id="passbook-client-list-more">`;
   
@@ -1808,7 +1854,7 @@ function renderCashBookTab() {
     <!-- Header -->
     <div id="cashbook-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
       <div style="text-align:center;font-size:16px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:10px">
-        संकट मोचन Finance — Cash Book / नकद बही
+        धन रक्षा Finance — Cash Book / नकद बही
       </div>
       <div style="display:flex;gap:10px;margin-bottom:10px;font-size:12px">
         <div style="flex:1">
@@ -2038,7 +2084,78 @@ function autoCalcLPFLPC() {
   if (lpcEl) lpcEl.value = lpc;
 }
 
-// ── CASH BOOK SAVE/LOAD ────────────────────────────────────────────────────
+// ── VOICE / MIC SUPPORT ──────────────────────────────────────────────────
+function startVoice(targetId, onResult, lang = 'hi-IN') {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('Browser mic support nahi hai! Chrome use karein.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('mic-btn-' + targetId);
+  if (btn) { btn.textContent = '🔴'; btn.style.animation = 'pulse 1s infinite'; }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = lang;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript.trim();
+    if (btn) { btn.textContent = '🎤'; btn.style.animation = ''; }
+    if (onResult) onResult(transcript);
+  };
+
+  recognition.onerror = (e) => {
+    if (btn) { btn.textContent = '🎤'; btn.style.animation = ''; }
+    showToast('Mic error: ' + e.error, 'error');
+  };
+
+  recognition.onend = () => {
+    if (btn) { btn.textContent = '🎤'; btn.style.animation = ''; }
+  };
+
+  recognition.start();
+  showToast('🎤 Bol rahe hain... sunna shuru!', 'success');
+}
+
+function voiceAmount(targetId) {
+  startVoice(targetId, (text) => {
+    // Extract number from Hindi/English speech
+    let num = text.replace(/[^\d]/g, '');
+    // Hindi words to numbers
+    const words = { 'सौ': 100, 'पांच सौ': 500, 'हजार': 1000, 'एक हजार': 1000,
+      'दो हजार': 2000, 'पांच हजार': 5000, 'दस हजार': 10000 };
+    Object.entries(words).forEach(([w, v]) => {
+      if (text.includes(w)) num = v;
+    });
+    const el = document.getElementById(targetId);
+    if (el && num) { el.value = num; el.dispatchEvent(new Event('input')); }
+    showToast(`💰 Amount: ₹${num}`, 'success');
+  });
+}
+
+function voiceSearch(targetId, filterFn) {
+  startVoice(targetId, (text) => {
+    const el = document.getElementById(targetId);
+    if (el) { el.value = text; el.dispatchEvent(new Event('input')); }
+    if (filterFn) filterFn(text);
+    showToast(`🔍 Searching: "${text}"`, 'success');
+  });
+}
+
+function voiceNote(targetId) {
+  startVoice(targetId, (text) => {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.value = (el.value ? el.value + ' ' : '') + text;
+      el.dispatchEvent(new Event('input'));
+    }
+    showToast(`📝 Note added: "${text}"`, 'success');
+  });
+}
+
+
 async function saveCashBook() {
   const date = document.getElementById('cb-date')?.value;
   if (!date) { showToast('Date daalo pehle!', 'error'); return; }
@@ -2171,7 +2288,7 @@ function printCashBook() {
   th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
   input{border:none;width:100%;text-align:right;font-size:12px}
   @media print{@page{margin:10mm}}</style></head><body>
-  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
+  <h2 style="text-align:center;margin-bottom:4px">धन रक्षा Finance — Cash Book</h2>
   <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
   ${area.innerHTML}</body></html>`;
   const w = window.open('','_blank');
@@ -2457,7 +2574,7 @@ function renderMeetingTab() {
     
     // Company Header
     html += '<div style="text-align:center;padding:10px;border-bottom:2px solid #000">';
-    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">संकट मोचन Finance</div>';
+    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">धन रक्षा Finance</div>';
     html += '<div style="font-size:11px;color:#666">शाखा कार्यालय: बलिया</div>';
     html += '</div>';
 
@@ -2959,7 +3076,7 @@ async function downloadClientPDF(clientId) {
       @media print{button{display:none}}
     </style></head>
     <body>
-      <h1>🚩 Sankat Mochan Finance — Client Report</h1>
+      <h1>🚩 Dhan Raksha Finance — Client Report</h1>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px">Generated: ${new Date().toLocaleString('hi-IN')}</div>
 
       <div class="section">
@@ -3045,7 +3162,7 @@ function sendWhatsAppReminder(clientId) {
     `• कुल भुगतान: ₹${fmt(totalPaid)}\n` +
     `• बकाया राशि: ₹${fmt(pending)}\n\n` +
     `कृपया समय पर भुगतान करें। धन्यवाद! 🙏\n\n` +
-    `Sankat Mochan Finance`
+    `Dhan Raksha Finance`
   );
 
   const phone = c.phone.replace(/[^0-9]/g, '');
@@ -3056,7 +3173,7 @@ function sendWhatsAppReminder(clientId) {
 function sendBirthdayWish(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number', 'error'); return; }
-  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nSankat Mochan Finance 🙏`);
+  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nDhan Raksha Finance 🙏`);
   const phone = c.phone.replace(/[^0-9]/g, '');
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 }
@@ -3743,7 +3860,7 @@ function printMeetingSheet() {
     pagesHtml += `
     <div class="page">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
-        <div style="font-size:16px;font-weight:bold">संकट मोचन FINANCE</div>
+        <div style="font-size:16px;font-weight:bold">धन रक्षा FINANCE</div>
         <div style="font-size:10px">शाखा कार्यालय: बलिया</div>
       </div>
       <table class="info-table">
@@ -3842,7 +3959,7 @@ function printMeetingSheet() {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>CDS - Sankat Mochan Finance</title>
+<title>CDS - Dhan Raksha Finance</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, sans-serif; font-size: 9px; color: #000; }
@@ -3956,7 +4073,7 @@ function showMeetingDay() {
 
             <!-- Company Header -->
             <div style="text-align:center;border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:10px">
-              <div style="font-size:15px;font-weight:700;color:var(--navy)">संकट मोचन Finance</div>
+              <div style="font-size:15px;font-weight:700;color:var(--navy)">धन रक्षा Finance</div>
               <div style="font-size:11px;color:var(--muted)">Center Day Sheet (CDS)</div>
             </div>
 
