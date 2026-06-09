@@ -1224,31 +1224,63 @@ async function savePayment() {
 }
 
 // ── MORE PAGE ────────────────────────────
-let moreTab = 'emi';
+let moreTab = null;
 
 function renderInvoicesPage(c) {
   c.innerHTML = `
-    <div class="no-print" style="margin-bottom:16px">
-      <div style="font-size:18px;font-weight:700;color:var(--navy)">☰ More / अधिक</div>
-      <div style="font-size:12px;color:var(--muted)">EMI, Passbook & Meeting Day</div>
+  <div class="no-print" style="margin-bottom:16px">
+    <div style="font-size:18px;font-weight:700;color:var(--navy)">☰ More / अधिक</div>
+    <div style="font-size:12px;color:var(--muted)">सभी सुविधाएं</div>
+  </div>
+
+  ${moreTab ? `
+  <div class="no-print" style="margin-bottom:12px">
+    <button onclick="moreTab=null;showPage('invoices')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--muted)">← वापस / Back</button>
+  </div>
+  <div id="more-content">
+    ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : renderMeetingTab()}
+  </div>
+  ` : `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px">
+
+    <div onclick="moreTab='emi';showPage('invoices')" style="background:linear-gradient(135deg,#1a2e4a,#2d4a7a);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(26,46,74,.3)">
+      <div style="font-size:32px;margin-bottom:8px">📅</div>
+      <div style="font-size:14px;font-weight:700">EMI Tracker</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">किस्त ट्रैकर</div>
     </div>
 
-    <!-- Tabs Row 1 -->
-    <div class="tabs no-print" style="margin-bottom:6px">
-      <button class="tab ${moreTab==='emi'?'active':''}" onclick="switchMoreTab('emi',this)" style="flex:1">📅 EMI</button>
-      <button class="tab ${moreTab==='passbook'?'active':''}" onclick="switchMoreTab('passbook',this)" style="flex:1">📒 Passbook</button>
-      <button class="tab ${moreTab==='meeting'?'active':''}" onclick="switchMoreTab('meeting',this)" style="flex:1">🏘️ Meeting</button>
-    </div>
-    <!-- Tabs Row 2 -->
-    <div class="tabs no-print" style="margin-bottom:6px">
-      <button class="tab ${moreTab==='cashbook'?'active':''}" onclick="switchMoreTab('cashbook',this)" style="flex:1">🧾 Cash Book</button>
-      <button class="tab ${moreTab==='collreg'?'active':''}" onclick="switchMoreTab('collreg',this)" style="flex:1">📋 Collection Reg</button>
-      <button class="tab ${moreTab==='clients'?'active':''}" onclick="switchMoreTab('clients',this)" style="flex:1">👤 ग्राहक</button>
+    <div onclick="moreTab='passbook';showPage('invoices')" style="background:linear-gradient(135deg,#065f46,#047857);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(6,95,70,.3)">
+      <div style="font-size:32px;margin-bottom:8px">📒</div>
+      <div style="font-size:14px;font-weight:700">Passbook</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">पासबुक</div>
     </div>
 
-    <div id="more-content">
-      ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : renderMeetingTab()}
+    <div onclick="moreTab='meeting';showPage('invoices')" style="background:linear-gradient(135deg,#7c2d12,#c2410c);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(124,45,18,.3)">
+      <div style="font-size:32px;margin-bottom:8px">🏘️</div>
+      <div style="font-size:14px;font-weight:700">Meeting Day</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">मीटिंग दिन</div>
     </div>
+
+    <div onclick="moreTab='clients';showPage('invoices')" style="background:linear-gradient(135deg,#4c1d95,#6d28d9);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(76,29,149,.3)">
+      <div style="font-size:32px;margin-bottom:8px">👤</div>
+      <div style="font-size:14px;font-weight:700">ग्राहक</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">Clients</div>
+    </div>
+
+    <div onclick="moreTab='cashbook';showPage('invoices')" style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(29,78,216,.3)">
+      <div style="font-size:32px;margin-bottom:8px">🧾</div>
+      <div style="font-size:14px;font-weight:700">Cash Book</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">नकद बही</div>
+    </div>
+
+    <div onclick="moreTab='collreg';showPage('invoices')" style="background:linear-gradient(135deg,#854d0e,#ca8a04);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(133,77,14,.3)">
+      <div style="font-size:32px;margin-bottom:8px">📋</div>
+      <div style="font-size:14px;font-weight:700">Collection Reg</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">संग्रह रजिस्टर</div>
+    </div>
+
+  </div>
+  `}
   `;
 }
 
