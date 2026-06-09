@@ -2,8 +2,8 @@
 //  CONFIGURATION — Replace with your Supabase values
 //  supabase.com → Project Settings → API
 // ─────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://oswbpddfbofoyddxdfej.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zd2JwZGRmYm9mb3lkZHhkZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MzA0NDUsImV4cCI6MjA5NTEwNjQ0NX0.Gem36jnT-m4I13k078tYxyxPfv_FLChfxgrMK4Kzk7o';
+const SUPABASE_URL = 'https://chaenhnaslkmzutmsumi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYWVuaG5hc2xrbXp1dG1zdW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzA2MjcsImV4cCI6MjA5MzYwNjYyN30.X-f-HPQzFMu7DivRZJz9y0Zx2DMjlh3trN66MWAhU1g';
 // ─────────────────────────────────────────────────────────
 
 // ── HELPER FUNCTIONS ─────────────────────
@@ -46,10 +46,10 @@ window.addEventListener('load', async () => {
     document.getElementById('splash').style.opacity = '0';
     setTimeout(() => {
       document.getElementById('splash').style.display = 'none';
-      initDemoApp();
+      session ? initApp(session.user) : showAuth();
     }, 500);
   }, 2000);
-  // demo mode
+  db.auth.onAuthStateChange((_e, s) => { if (!s) showAuth(); });
 });
 
 function showAuth() {
@@ -663,7 +663,7 @@ function sendOTPviaSMS() {
   const indiaPhone = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
 
   // SMS message
-  const msg = 'Dhan Raksha Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
+  const msg = 'Sankat Mochan Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
 
   // Open SMS app directly
   window.open('sms:+' + indiaPhone + '?body=' + encodeURIComponent(msg), '_blank');
@@ -696,7 +696,7 @@ function sendClientOTP() {
     `🙏 नमस्ते ${name} जी!
 
 ` +
-    `धन रक्षा Finance में आपका OTP है:
+    `संकट मोचन Finance में आपका OTP है:
 
 ` +
     `*${generatedOTP}*
@@ -707,7 +707,7 @@ function sendClientOTP() {
     `किसी को share न करें।
 
 ` +
-    `धन रक्षा Finance 🚩`
+    `संकट मोचन Finance 🚩`
   );
 
   const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -1854,7 +1854,7 @@ function renderCashBookTab() {
     <!-- Header -->
     <div id="cashbook-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
       <div style="text-align:center;font-size:16px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:10px">
-        धन रक्षा Finance — Cash Book / नकद बही
+        संकट मोचन Finance — Cash Book / नकद बही
       </div>
       <div style="display:flex;gap:10px;margin-bottom:10px;font-size:12px">
         <div style="flex:1">
@@ -2288,7 +2288,7 @@ function printCashBook() {
   th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
   input{border:none;width:100%;text-align:right;font-size:12px}
   @media print{@page{margin:10mm}}</style></head><body>
-  <h2 style="text-align:center;margin-bottom:4px">धन रक्षा Finance — Cash Book</h2>
+  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
   <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
   ${area.innerHTML}</body></html>`;
   const w = window.open('','_blank');
@@ -2574,7 +2574,7 @@ function renderMeetingTab() {
     
     // Company Header
     html += '<div style="text-align:center;padding:10px;border-bottom:2px solid #000">';
-    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">धन रक्षा Finance</div>';
+    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">संकट मोचन Finance</div>';
     html += '<div style="font-size:11px;color:#666">शाखा कार्यालय: बलिया</div>';
     html += '</div>';
 
@@ -3076,7 +3076,7 @@ async function downloadClientPDF(clientId) {
       @media print{button{display:none}}
     </style></head>
     <body>
-      <h1>🚩 Dhan Raksha Finance — Client Report</h1>
+      <h1>🚩 Sankat Mochan Finance — Client Report</h1>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px">Generated: ${new Date().toLocaleString('hi-IN')}</div>
 
       <div class="section">
@@ -3162,7 +3162,7 @@ function sendWhatsAppReminder(clientId) {
     `• कुल भुगतान: ₹${fmt(totalPaid)}\n` +
     `• बकाया राशि: ₹${fmt(pending)}\n\n` +
     `कृपया समय पर भुगतान करें। धन्यवाद! 🙏\n\n` +
-    `Dhan Raksha Finance`
+    `Sankat Mochan Finance`
   );
 
   const phone = c.phone.replace(/[^0-9]/g, '');
@@ -3173,7 +3173,7 @@ function sendWhatsAppReminder(clientId) {
 function sendBirthdayWish(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number', 'error'); return; }
-  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nDhan Raksha Finance 🙏`);
+  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nSankat Mochan Finance 🙏`);
   const phone = c.phone.replace(/[^0-9]/g, '');
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 }
@@ -3860,7 +3860,7 @@ function printMeetingSheet() {
     pagesHtml += `
     <div class="page">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
-        <div style="font-size:16px;font-weight:bold">धन रक्षा FINANCE</div>
+        <div style="font-size:16px;font-weight:bold">संकट मोचन FINANCE</div>
         <div style="font-size:10px">शाखा कार्यालय: बलिया</div>
       </div>
       <table class="info-table">
@@ -3959,7 +3959,7 @@ function printMeetingSheet() {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>CDS - Dhan Raksha Finance</title>
+<title>CDS - Sankat Mochan Finance</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, sans-serif; font-size: 9px; color: #000; }
@@ -4073,7 +4073,7 @@ function showMeetingDay() {
 
             <!-- Company Header -->
             <div style="text-align:center;border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:10px">
-              <div style="font-size:15px;font-weight:700;color:var(--navy)">धन रक्षा Finance</div>
+              <div style="font-size:15px;font-weight:700;color:var(--navy)">संकट मोचन Finance</div>
               <div style="font-size:11px;color:var(--muted)">Center Day Sheet (CDS)</div>
             </div>
 
