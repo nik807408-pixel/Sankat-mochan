@@ -139,6 +139,74 @@ async function initDemoApp() {
   startAutoRefresh();
 }
 
+function showDemoLogin() {
+  const authScreen = document.getElementById('auth-screen');
+  authScreen.style.display = 'flex';
+  authScreen.innerHTML = `
+    <div style="width:100%;max-width:380px;margin:auto;padding:24px">
+      <!-- Logo -->
+      <div style="text-align:center;margin-bottom:32px">
+        <div style="width:72px;height:72px;background:linear-gradient(135deg,#1a2e4a,#d97706);border-radius:20px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(26,46,74,.3)">
+          <svg viewBox="0 0 52 52" width="44" height="44">
+            <circle cx="26" cy="26" r="24" fill="rgba(255,255,255,.15)"/>
+            <text x="26" y="22" text-anchor="middle" font-family="serif" font-size="13" font-weight="700" fill="white">धन</text>
+            <text x="26" y="37" text-anchor="middle" font-family="serif" font-size="13" font-weight="700" fill="#FFD700">रक्षा</text>
+          </svg>
+        </div>
+        <div style="font-size:22px;font-weight:800;color:white">धन <span style="color:#d97706">रक्षा</span></div>
+        <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px">Demo Finance App</div>
+      </div>
+
+      <!-- Login Card -->
+      <div style="background:white;border-radius:20px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+        <div style="font-size:18px;font-weight:700;color:#1a2e4a;margin-bottom:4px">Welcome! 👋</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:20px">Demo account mein login karein</div>
+
+        <div style="margin-bottom:14px">
+          <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Username</label>
+          <input id="demo-user" type="text" placeholder="demo" value="demo"
+            style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;margin-top:4px;outline:none;box-sizing:border-box;color:#1a2e4a"
+            onfocus="this.style.borderColor='#1a2e4a'" onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+
+        <div style="margin-bottom:20px">
+          <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Password</label>
+          <input id="demo-pass" type="password" placeholder="demo@123" value="demo@123"
+            style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;margin-top:4px;outline:none;box-sizing:border-box;color:#1a2e4a"
+            onfocus="this.style.borderColor='#1a2e4a'" onblur="this.style.borderColor='#e2e8f0'"
+            onkeydown="if(event.key==='Enter') demoLogin()">
+        </div>
+
+        <div id="demo-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:14px">
+          ❌ Username ya Password galat hai!
+        </div>
+
+        <button onclick="demoLogin()" style="width:100%;background:linear-gradient(135deg,#1a2e4a,#2d4a7a);color:white;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(26,46,74,.3)">
+          Login / प्रवेश करें
+        </button>
+
+        <div style="text-align:center;margin-top:14px;padding:10px;background:#f8fafc;border-radius:8px">
+          <div style="font-size:11px;color:#64748b;font-weight:600">Demo Credentials:</div>
+          <div style="font-size:12px;color:#1a2e4a;margin-top:2px">User: <strong>demo</strong> | Pass: <strong>demo@123</strong></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function demoLogin() {
+  const user = document.getElementById('demo-user')?.value.trim();
+  const pass = document.getElementById('demo-pass')?.value.trim();
+  const errEl = document.getElementById('demo-error');
+
+  if (user === 'demo' && pass === 'demo@123') {
+    sessionStorage.setItem('demoLoggedIn', 'true');
+    if (errEl) errEl.style.display = 'none';
+    initDemoApp();
+  } else {
+    if (errEl) errEl.style.display = 'block';
+  }
+}
+
 // ── APP INIT ─────────────────────────────
 async function initApp(user) {
   currentUser = user;
@@ -2666,7 +2734,11 @@ function renderMeetingTab() {
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:center">0</td>';
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right">'+fmt(pDue)+'</td>';
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right">'+fmt(iDue)+'</td>';
-      html += '<td style="padding:5px 4px;border:1px solid #ddd;min-width:50px"></td>';
+      // CRM — aaj ki payment
+      const todayPayment = allPayments
+        .filter(p => p.client_id === cl.id && p.type === 'credit' && p.date === todayStr && !(p.description||'').includes('DELETED'))
+        .reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right;font-weight:700;color:'+(todayPayment>0?'#16a34a':'#999')+'">'+(todayPayment>0?fmt(todayPayment):'—')+'</td>';
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right;font-weight:700;color:green">'+fmt(emi)+'</td>';
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:center">'
         + (outstandingP > 0 ? '<button onclick="quickPay(\''+cl.id+'\','+emi+')" style="background:#22c55e;color:white;border:none;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">💳 Pay</button>' : '<span style="color:green;font-size:11px">✅ Done</span>')
@@ -3851,7 +3923,7 @@ function printMeetingSheet() {
         <td>0</td>
         <td>${fmt(pDue)}</td>
         <td>${fmt(iDue)}</td>
-        <td></td>
+        <td style="color:#16a34a;font-weight:700">${(() => { const tp = allPayments.filter(p=>p.client_id===cl.id&&p.type==='credit'&&p.date===todayStr&&!(p.description||'').includes('DELETED')).reduce((s,p)=>s+(parseFloat(p.amount)||0),0); return tp>0?fmt(tp):''; })()}</td>
         <td style="color:green;font-weight:bold">${fmt(emi)}</td>
         <td style="min-width:50px"></td>
       </tr>`;
