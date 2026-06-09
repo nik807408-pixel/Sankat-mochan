@@ -1297,6 +1297,7 @@ async function openDetail(id) {
     </div>
     <div class="modal-actions">
       <button class="btn-secondary" onclick="closeModal('detail-modal')">Close / बंद</button>
+      <button onclick="printLoanCard('${c.id}')" style="flex:1;padding:10px;background:linear-gradient(135deg,#065f46,#047857);color:white;border:none;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">🪪 Loan Card</button>
       <button class="btn-primary" style="flex:2" onclick="openEditClient(allClients.find(x=>x.id==='${c.id}'))">Edit / संपादित</button>
     </div>
   `;
@@ -2152,7 +2153,126 @@ function autoCalcLPFLPC() {
   if (lpcEl) lpcEl.value = lpc;
 }
 
-// ── VOICE / MIC SUPPORT ──────────────────────────────────────────────────
+// ── LOAN CARD PRINT ──────────────────────────────────────────────────────
+function printLoanCard(clientId) {
+  const cl = allClients.find(c => c.id === clientId);
+  if (!cl) return;
+
+  const loan = parseFloat(cl.balance)||0;
+  const interest = parseFloat(cl.interest_amount)||0;
+  const weeks = parseInt(cl.loan_weeks)||12;
+  const emi = Math.round((loan+interest)/weeks);
+  const lpf = parseFloat(cl.lpf)||500;
+  const lpc = parseFloat(cl.lpc)||Math.ceil(loan/10000)*500;
+  const totalGst = Math.round((lpf+lpc)*0.18);
+  const cgst = Math.round(totalGst/2);
+  const sgst = Math.round(totalGst/2);
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @media print { body { margin: 0; } }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #000; margin: 20px; }
+  .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px; }
+  .company-name { font-size: 18px; font-weight: bold; }
+  .company-sub { font-size: 11px; }
+  .section-title { background: #1a2e4a; color: white; text-align: center; padding: 5px; font-weight: bold; font-size: 13px; margin: 10px 0 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { border: 1px solid #999; padding: 5px 8px; font-size: 11px; }
+  .label { color: #444; font-weight: 600; width: 35%; background: #f5f5f5; }
+  .photo-box { width: 80px; height: 90px; border: 1px solid #999; float: right; text-align: center; font-size: 10px; color: #666; padding-top: 30px; }
+  .sign-table td { height: 45px; vertical-align: bottom; font-size: 10px; }
+  .footer-text { font-size: 10px; color: #555; margin-top: 8px; border: 1px solid #ccc; padding: 8px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="company-name">संकट मोचन Finance</div>
+  <div class="company-sub">शाखा कार्यालय: बलिया, उत्तर प्रदेश</div>
+</div>
+
+<div class="section-title">ऋण पुस्तिका (Loan Card)</div>
+
+<!-- Client Info -->
+<div style="overflow:hidden">
+  <div class="photo-box">
+    ${cl.photo_url ? `<img src="${cl.photo_url}" style="width:78px;height:88px;object-fit:cover"/>` : 'फोटो<br>Photo'}
+  </div>
+  <table style="width:calc(100% - 95px)">
+    <tr><td class="label">शाखा का नाम</td><td>बलिया</td></tr>
+    <tr><td class="label">क्षेत्र का नाम</td><td>${cl.center_name||'—'}</td></tr>
+    <tr><td class="label">केंद्र/समूह विवरण</td><td>${cl.center_name||'—'} / ${cl.meeting_day||'—'}</td></tr>
+    <tr><td class="label">कलक्टर का नाम</td><td>${cl.name||'—'}</td></tr>
+    <tr><td class="label">ग्राहक आई.डी.</td><td>${cl.customer_id||'—'}</td></tr>
+    <tr><td class="label">ऋण आई.डी.</td><td>${cl.loan_id||'—'}</td></tr>
+    <tr><td class="label">संपर्क नंबर</td><td>${cl.phone||'—'}</td></tr>
+    <tr><td class="label">सह-बीमाकर्ता का नाम</td><td>${cl.husband_wife_name||cl.guarantor_name||'—'}</td></tr>
+    <tr><td class="label">पता</td><td>${cl.address||''} ${cl.city||''} ${cl.state||''}</td></tr>
+  </table>
+</div>
+
+<!-- Loan Details -->
+<div class="section-title">ऋण विवरण</div>
+<table>
+  <tr>
+    <td class="label">ऋण राशि</td><td><strong>₹${fmt(loan)}</strong></td>
+    <td class="label">उत्पाद</td><td>${cl.loan_purpose||'General'}</td>
+  </tr>
+  <tr>
+    <td class="label">ऋण का उद्देश्य</td><td>${cl.loan_purpose||'—'}</td>
+    <td class="label">भुगतान की अवधि</td><td>${weeks} Weeks</td>
+  </tr>
+  <tr>
+    <td class="label">ऋण आरंभ तिथि</td><td>${cl.loan_date||'—'}</td>
+    <td class="label">प्रथम किस्त तिथि</td><td>${cl.first_emi_date||'—'}</td>
+  </tr>
+  <tr>
+    <td class="label">साप्ताहिक किस्त</td><td><strong>₹${fmt(emi)}</strong></td>
+    <td class="label">ब्याज राशि</td><td>₹${fmt(interest)}</td>
+  </tr>
+  <tr>
+    <td class="label">LPF (जीवन बीमा)</td><td>₹${fmt(lpf)}</td>
+    <td class="label">LPC</td><td>₹${fmt(lpc)}</td>
+  </tr>
+  <tr>
+    <td class="label">Total GST (18%)</td><td>₹${fmt(totalGst)}</td>
+    <td class="label">CGST</td><td>₹${fmt(cgst)}</td>
+  </tr>
+  <tr>
+    <td class="label">SGST</td><td>₹${fmt(sgst)}</td>
+    <td class="label">लोन चक्र</td><td>${cl.loan_cycle||'1st'}</td>
+  </tr>
+</table>
+
+<!-- Helpline -->
+<div class="footer-text">
+  किसी भी शिकायत के लिए संपर्क करें | For any complaint please contact: <strong>संकट मोचन Finance, बलिया</strong>
+</div>
+
+<!-- Signatures -->
+<div class="section-title">हस्ताक्षर</div>
+<table class="sign-table">
+  <tr>
+    <td style="width:33%">ग्राहक का नाम: <strong>${cl.name||''}</strong><br><br><br>ग्राहक हस्ताक्षर: ___________</td>
+    <td style="width:34%">सी.एम.ओ. का नाम:<br><br><br>सी.एम.ओ. हस्ताक्षर: ___________</td>
+    <td style="width:33%">बी.एम. का नाम:<br><br><br>बी.एम. हस्ताक्षर: ___________</td>
+  </tr>
+</table>
+
+<script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }</script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+
 function startVoice(targetId, onResult, lang = 'hi-IN') {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
