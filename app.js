@@ -229,55 +229,95 @@ function renderDashboard(c) {
   const vipClients = allClients.filter(x => x.status === 'vip').length;
 
   c.innerHTML = `
-    <div style="margin-bottom:16px">
-      <div style="font-size:18px;font-weight:700;color:var(--navy)">नमस्ते, ${currentProfile.name?.split(' ')[0]} 👋</div>
-      <div style="font-size:12px;color:var(--muted)">Your finance overview / आपका वित्त सारांश</div>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label"><span class="hindi-label">कुल ग्राहक</span>Total Clients</div>
-        <div class="stat-val gold">${allClients.length}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label"><span class="hindi-label">कुल बैलेंस</span>Total Balance</div>
-        <div class="stat-val green">₹${fmt(totalBal)}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label"><span class="hindi-label">कुल प्राप्त</span>Total Received</div>
-        <div class="stat-val" style="color:var(--navy2)">₹${fmt(totalPaid)}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label"><span class="hindi-label">कुल ब्याज</span>Total Interest</div>
-        <div class="stat-val purple">₹${fmt(allClients.reduce((s,c)=>s+(parseFloat(c.interest_amount)||0),0))}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label"><span class="hindi-label">कुल LPF</span>Total LPF</div>
-        <div class="stat-val" style="color:#0891b2">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpf)||500),0))}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label"><span class="hindi-label">कुल LPC</span>Total LPC</div>
-        <div class="stat-val" style="color:#d97706">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpc)||Math.ceil((parseFloat(c.balance)||0)/10000)*500),0))}</div>
-      </div>
+    <!-- Welcome Header -->
+    <div style="background:linear-gradient(135deg,#1a2e4a,#2d4a7a);border-radius:16px;padding:16px;margin-bottom:16px;color:white">
+      <div style="font-size:20px;font-weight:800">नमस्ते, ${currentProfile.name?.split(' ')[0]} 👋</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px">आपका वित्त सारांश — Your Finance Overview</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px">${new Date().toLocaleDateString('hi-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
     </div>
 
+    <!-- Stats Grid Beautiful -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+
+      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #f59e0b">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">👥</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल ग्राहक</div>
+        </div>
+        <div style="font-size:24px;font-weight:800;color:#f59e0b">${allClients.filter(c=>c.status!=='closed').length}</div>
+        <div style="font-size:10px;color:var(--muted)">Active / ${allClients.length} Total</div>
+      </div>
+
+      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #10b981">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">💰</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल लोन</div>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:#10b981">₹${fmt(totalBal)}</div>
+        <div style="font-size:10px;color:var(--muted)">Total Balance</div>
+      </div>
+
+      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #3b82f6">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">✅</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल प्राप्त</div>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:#3b82f6">₹${fmt(totalPaid)}</div>
+        <div style="font-size:10px;color:var(--muted)">Total Received</div>
+      </div>
+
+      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #f43f5e">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">📊</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">बाकी</div>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:#f43f5e">₹${fmt(Math.max(0,totalBal+allClients.reduce((s,c)=>s+(parseFloat(c.interest_amount)||0),0)-totalPaid))}</div>
+        <div style="font-size:10px;color:var(--muted)">Outstanding</div>
+      </div>
+
+      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #0891b2">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">🏷️</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल LPF</div>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:#0891b2">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpf)||500),0))}</div>
+        <div style="font-size:10px;color:var(--muted)">Total LPF</div>
+      </div>
+
+      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #d97706">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">📋</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल LPC</div>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:#d97706">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpc)||Math.ceil((parseFloat(c.balance)||0)/10000)*500),0))}</div>
+        <div style="font-size:10px;color:var(--muted)">Total LPC</div>
+      </div>
+
+    </div>
+
+    <!-- Chart -->
     <div class="chart-card">
       <div class="chart-title">📊 Client Balance Overview <span class="hindi">/ ग्राहक बैलेंस</span></div>
       <canvas id="balanceChart" height="180"></canvas>
     </div>
 
-    <div class="chart-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div class="chart-title" style="margin:0">💰 Payment History / भुगतान इतिहास</div>
-        <button onclick="exportPaymentsExcel()" style="background:var(--success);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer">📥 Export Excel</button>
+    <!-- Payment History - Collapsible -->
+    <div class="chart-card" style="padding:0;overflow:hidden">
+      <div onclick="togglePaymentHistory()" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;background:var(--navy);color:white;border-radius:12px" id="ph-header">
+        <div style="font-weight:700;font-size:14px">💰 Payment History / भुगतान इतिहास</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button onclick="event.stopPropagation();exportPaymentsExcel()" style="background:rgba(255,255,255,.2);color:white;border:none;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer">📥 Excel</button>
+          <span id="ph-toggle-icon" style="font-size:16px">▼</span>
+        </div>
       </div>
-      <!-- Client Search -->
-      <div style="margin-bottom:10px;display:flex;gap:8px;align-items:center">
-        <input type="text" id="ph-client-search" placeholder="🔍 Client name search करें..." 
-          oninput="filterPaymentHistory(this.value)"
-          style="flex:1;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--navy)">
-      </div>
-      ${!allPayments || allPayments.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">No payments yet / कोई भुगतान नहीं<br><span style="font-size:11px">Client पर click करके payment add करें</span></div>' :
-      `<div style="overflow-x:auto">
+      <div id="ph-body" style="display:none;padding:12px">
+        <div style="margin-bottom:10px">
+          <input type="text" id="ph-client-search" placeholder="🔍 Client name search करें..." 
+            oninput="filterPaymentHistory(this.value)"
+            style="width:100%;border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--navy);box-sizing:border-box">
+        </div>
+        ${!allPayments || allPayments.length === 0 ? '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">No payments yet</div>' :
+        `<div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
             <tr style="background:var(--navy);color:white">
@@ -318,6 +358,7 @@ function renderDashboard(c) {
         </table>
         ${allPayments.length > 50 ? `<div style="text-align:center;padding:8px;font-size:11px;color:var(--muted)">Showing 50 of ${allPayments.length} payments</div>` : ''}
       </div>`}
+      </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
@@ -1565,6 +1606,20 @@ function filterPassbookMore(q) {
     const show = !query || name.includes(query) || phone.includes(query) || nameRoman.includes(query);
     row.style.display = show ? '' : 'none';
   });
+}
+
+
+function togglePaymentHistory() {
+  const body = document.getElementById('ph-body');
+  const icon = document.getElementById('ph-toggle-icon');
+  if (!body) return;
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    if (icon) icon.textContent = '▲';
+  } else {
+    body.style.display = 'none';
+    if (icon) icon.textContent = '▼';
+  }
 }
 
 
