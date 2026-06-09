@@ -1458,7 +1458,13 @@ function renderPassbookTab() {
   const clients = allClients;
   if (clients.length === 0) return emptyState('📒','No clients yet');
   
-  let html = '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:700;color:var(--navy)">📒 Client चुनें</div></div>';
+  let html = `
+  <div style="margin-bottom:12px">
+    <input class="search-bar" id="passbook-search-more" placeholder="🔍 Client naam ya phone खोजें..." 
+      oninput="filterPassbookMore(this.value)"
+      style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--navy);outline:none">
+  </div>
+  <div id="passbook-client-list-more">`;
   
   clients.forEach(cl => {
     const payments = allPayments.filter(p => p.client_id === cl.id && p.type === 'credit');
@@ -1468,16 +1474,25 @@ function renderPassbookTab() {
     const outstanding = Math.max(0, (loan+interest) - totalPaid);
     const initials = cl.name?.charAt(0).toUpperCase() || '?';
     const photoHtml = cl.photo_url ? '<img src="'+cl.photo_url+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>' : initials;
+    const isClosed = cl.status === 'closed';
     
-    html += '<div data-cid="'+cl.id+'" onclick="passbookOpen(this)" style="background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;align-items:center;gap:12px;cursor:pointer">';
-    html += '<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--gold);flex-shrink:0;overflow:hidden">'+photoHtml+'</div>';
-    html += '<div style="flex:1"><div style="font-weight:700;font-size:14px;color:var(--navy)">'+cl.name+'</div>';
-    html += '<div style="font-size:11px;color:var(--muted)">'+(cl.customer_id||'')+' · '+(cl.center_name||'')+'</div>';
-    html += '<div style="font-size:11px;color:var(--muted)">'+payments.length+' payments</div></div>';
-    html += '<div style="text-align:right"><div style="font-weight:700;color:var(--danger);font-size:13px">₹'+fmt(outstanding)+'</div>';
-    html += '<div style="font-size:10px;color:var(--muted)">outstanding</div></div></div>';
+    html += `<div data-cid="${cl.id}" data-name="${cl.name.toLowerCase()}" data-phone="${cl.phone||''}" 
+      onclick="passbookOpen(this)" 
+      style="background:white;border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;align-items:center;gap:12px;cursor:pointer;${isClosed?'opacity:0.6':''}">
+      <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--navy),var(--navy2));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:var(--gold);flex-shrink:0;overflow:hidden">${photoHtml}</div>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px;color:var(--navy)">${cl.name} ${isClosed?'🔒':''}</div>
+        <div style="font-size:11px;color:var(--muted)">${cl.customer_id||''} · ${cl.center_name||''}</div>
+        <div style="font-size:11px;color:var(--muted)">${payments.length} payments</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:700;color:${isClosed?'var(--success)':'var(--danger)'};font-size:13px">₹${fmt(outstanding)}</div>
+        <div style="font-size:10px;color:var(--muted)">${isClosed?'Closed':'outstanding'}</div>
+      </div>
+    </div>`;
   });
   
+  html += '</div>';
   return html;
 }
 
@@ -1539,6 +1554,19 @@ function hindiToRoman(text) {
   });
   return result.toLowerCase().replace(/[^a-z0-9\s]/g, '');
 }
+
+function filterPassbookMore(q) {
+  const query = (q||'').toLowerCase().trim();
+  const rows = document.querySelectorAll('#passbook-client-list-more [data-cid]');
+  rows.forEach(row => {
+    const name = (row.dataset.name||'').toLowerCase();
+    const phone = (row.dataset.phone||'');
+    const nameRoman = hindiToRoman(row.dataset.name||'');
+    const show = !query || name.includes(query) || phone.includes(query) || nameRoman.includes(query);
+    row.style.display = show ? '' : 'none';
+  });
+}
+
 
 function filterPaymentHistory(searchQ) {
   const q = (searchQ || '').trim().toLowerCase();
