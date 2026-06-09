@@ -250,6 +250,14 @@ function renderDashboard(c) {
         <div class="stat-label"><span class="hindi-label">कुल ब्याज</span>Total Interest</div>
         <div class="stat-val purple">₹${fmt(allClients.reduce((s,c)=>s+(parseFloat(c.interest_amount)||0),0))}</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="hindi-label">कुल LPF</span>Total LPF</div>
+        <div class="stat-val" style="color:#0891b2">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpf)||500),0))}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="hindi-label">कुल LPC</span>Total LPC</div>
+        <div class="stat-val" style="color:#d97706">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpc)||Math.ceil((parseFloat(c.balance)||0)/10000)*500),0))}</div>
+      </div>
     </div>
 
     <div class="chart-card">
@@ -1232,13 +1240,14 @@ function renderInvoicesPage(c) {
       <button class="tab ${moreTab==='meeting'?'active':''}" onclick="switchMoreTab('meeting',this)" style="flex:1">🏘️ Meeting</button>
     </div>
     <!-- Tabs Row 2 -->
-    <div class="tabs no-print" style="margin-bottom:16px">
+    <div class="tabs no-print" style="margin-bottom:6px">
       <button class="tab ${moreTab==='cashbook'?'active':''}" onclick="switchMoreTab('cashbook',this)" style="flex:1">🧾 Cash Book</button>
       <button class="tab ${moreTab==='collreg'?'active':''}" onclick="switchMoreTab('collreg',this)" style="flex:1">📋 Collection Reg</button>
+      <button class="tab ${moreTab==='clients'?'active':''}" onclick="switchMoreTab('clients',this)" style="flex:1">👤 ग्राहक</button>
     </div>
 
     <div id="more-content">
-      ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : renderMeetingTab()}
+      ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : renderMeetingTab()}
     </div>
   `;
 }
@@ -1248,7 +1257,24 @@ function switchMoreTab(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const c = document.getElementById('more-content');
-  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : renderMeetingTab();
+  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : tab==='clients' ? renderClientsTab() : renderMeetingTab();
+}
+
+function renderClientsTab() {
+  return `
+    <div>
+      <input class="search-bar" id="search-inp" placeholder="🔍 नाम, फोन खोजें…" oninput="filterClients()"/>
+      <div class="tabs" style="margin-bottom:10px">
+        <button class="tab active" onclick="filterByStatus('all',this)">सभी (${allClients.length})</button>
+        <button class="tab" onclick="filterByStatus('active',this)">Active (${allClients.filter(x=>x.status==='active').length})</button>
+        <button class="tab" onclick="filterByStatus('closed',this)" style="color:#dc2626">🔒 Closed (${allClients.filter(x=>x.status==='closed').length})</button>
+        <button class="tab" onclick="filterByStatus('inactive',this)">Inactive (${allClients.filter(x=>x.status==='inactive').length})</button>
+      </div>
+      <div style="margin-bottom:10px;text-align:right">
+        <button onclick="openAddClient()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">+ ग्राहक जोड़ें</button>
+      </div>
+      <div id="client-list">${allClients.map(clientCard).join('') || emptyState('👤','No clients yet / अभी कोई ग्राहक नहीं')}</div>
+    </div>`;
 }
 
 // ── EMI TAB ───────────────────────────────
