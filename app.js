@@ -236,61 +236,70 @@ function renderDashboard(c) {
       <div style="font-size:11px;opacity:.7;margin-top:2px">${new Date().toLocaleDateString('hi-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
     </div>
 
-    <!-- Stats Grid Beautiful -->
+    <!-- Stats Grid Gradient -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
 
-      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #f59e0b">
+      <div style="background:linear-gradient(135deg,#f59e0b,#fbbf24);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(245,158,11,.4);color:white">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:22px">👥</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल ग्राहक</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">कुल ग्राहक</div>
         </div>
-        <div style="font-size:24px;font-weight:800;color:#f59e0b">${allClients.filter(c=>c.status!=='closed').length}</div>
-        <div style="font-size:10px;color:var(--muted)">Active / ${allClients.length} Total</div>
+        <div style="font-size:26px;font-weight:900">${allClients.filter(c=>c.status!=='closed').length}</div>
+        <div style="font-size:10px;opacity:.8">Active / ${allClients.length} Total</div>
       </div>
 
-      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #10b981">
+      <div style="background:linear-gradient(135deg,#10b981,#34d399);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(16,185,129,.4);color:white">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:22px">💰</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल लोन</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">कुल लोन</div>
         </div>
-        <div style="font-size:20px;font-weight:800;color:#10b981">₹${fmt(totalBal)}</div>
-        <div style="font-size:10px;color:var(--muted)">Total Balance</div>
+        <div style="font-size:20px;font-weight:900">₹${fmt(totalBal)}</div>
+        <div style="font-size:10px;opacity:.8">Total Balance</div>
       </div>
 
-      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #3b82f6">
+      <div style="background:linear-gradient(135deg,#3b82f6,#60a5fa);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(59,130,246,.4);color:white">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:22px">✅</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल प्राप्त</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">कुल प्राप्त</div>
         </div>
-        <div style="font-size:20px;font-weight:800;color:#3b82f6">₹${fmt(totalPaid)}</div>
-        <div style="font-size:10px;color:var(--muted)">Total Received</div>
+        <div style="font-size:20px;font-weight:900">₹${fmt(totalPaid)}</div>
+        <div style="font-size:10px;opacity:.8">Total Received</div>
       </div>
 
-      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #f43f5e">
+      <div style="background:linear-gradient(135deg,#8b5cf6,#a78bfa);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(139,92,246,.4);color:white">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">💹</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">कुल ब्याज</div>
+        </div>
+        <div style="font-size:20px;font-weight:900">₹${fmt(allClients.reduce((s,c)=>s+(parseFloat(c.interest_amount)||0),0))}</div>
+        <div style="font-size:10px;opacity:.8">Total Interest</div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,#f43f5e,#fb7185);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(244,63,94,.4);color:white">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:22px">📊</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">बाकी</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">बाकी</div>
         </div>
-        <div style="font-size:20px;font-weight:800;color:#f43f5e">₹${fmt(Math.max(0,totalBal+allClients.reduce((s,c)=>s+(parseFloat(c.interest_amount)||0),0)-totalPaid))}</div>
-        <div style="font-size:10px;color:var(--muted)">Outstanding</div>
+        <div style="font-size:20px;font-weight:900">₹${fmt(Math.max(0,totalBal+allClients.reduce((s,c)=>s+(parseFloat(c.interest_amount)||0),0)-totalPaid))}</div>
+        <div style="font-size:10px;opacity:.8">Outstanding</div>
       </div>
 
-      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #0891b2">
+      <div style="background:linear-gradient(135deg,#0891b2,#22d3ee);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(8,145,178,.4);color:white">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:22px">🏷️</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल LPF</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">कुल LPF</div>
         </div>
-        <div style="font-size:20px;font-weight:800;color:#0891b2">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpf)||500),0))}</div>
-        <div style="font-size:10px;color:var(--muted)">Total LPF</div>
+        <div style="font-size:20px;font-weight:900">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpf)||500),0))}</div>
+        <div style="font-size:10px;opacity:.8">Total LPF</div>
       </div>
 
-      <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 10px rgba(15,37,71,.08);border-left:4px solid #d97706">
+      <div style="background:linear-gradient(135deg,#d97706,#f59e0b);border-radius:14px;padding:14px;box-shadow:0 4px 12px rgba(217,119,6,.4);color:white;grid-column:1/-1">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:22px">📋</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase">कुल LPC</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;opacity:.9">कुल LPC</div>
         </div>
-        <div style="font-size:20px;font-weight:800;color:#d97706">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpc)||Math.ceil((parseFloat(c.balance)||0)/10000)*500),0))}</div>
-        <div style="font-size:10px;color:var(--muted)">Total LPC</div>
+        <div style="font-size:24px;font-weight:900">₹${fmt(allClients.filter(c=>c.status!=='closed').reduce((s,c)=>s+(parseFloat(c.lpc)||Math.ceil((parseFloat(c.balance)||0)/10000)*500),0))}</div>
+        <div style="font-size:10px;opacity:.8">Total LPC</div>
       </div>
 
     </div>
