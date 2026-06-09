@@ -1246,7 +1246,7 @@ function renderInvoicesPage(c) {
 function switchMoreTab(tab, btn) {
   moreTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   const c = document.getElementById('more-content');
   if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : renderMeetingTab();
 }
@@ -1826,7 +1826,57 @@ function calcDenom() {
   if(elTotal) elTotal.textContent = '₹'+total.toLocaleString('en-IN');
 }
 
-// ── LPF / LPC AUTO CALC ──────────────────────────────────────────────────
+// ── QUICK PAY FROM MEETING DAY ────────────────────────────────────────────
+async function quickPay(clientId, defaultEmi) {
+  const cl = allClients.find(c => c.id === clientId);
+  if (!cl) return;
+
+  const amount = prompt(`💳 ${cl.name}\nInstallment Amount (₹):`, defaultEmi);
+  if (!amount || isNaN(parseFloat(amount))) return;
+
+  const today = new Date().toISOString().slice(0,10);
+
+  try {
+    const { data, error } = await db.from('payments').insert({
+      client_id: clientId,
+      amount: parseFloat(amount),
+      type: 'credit',
+      description: 'Cash / नकद',
+      date: today,
+      created_by: currentUser?.id || null
+    }).select().single();
+
+    if (error) throw error;
+
+    allPayments.unshift(data);
+    showToast(`✅ ₹${fmt(parseFloat(amount))} — ${cl.name}`, 'success');
+
+    // Auto-close check
+    const totalLoanInterest = (parseFloat(cl.balance)||0) + (parseFloat(cl.interest_amount)||0);
+    const totalPaid = allPayments
+      .filter(p => p.client_id === clientId && p.type === 'credit' && !(p.description||'').includes('DELETED'))
+      .reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
+    const outstanding = Math.max(0, totalLoanInterest - totalPaid);
+
+    if (outstanding <= 0 && cl.status !== 'closed') {
+      const confirmClose = confirm(`🎉 ${cl.name} ka loan pura ho gaya!\nAccount CLOSE karein?`);
+      if (confirmClose) {
+        await db.from('clients').update({ status: 'closed' }).eq('id', clientId);
+        await loadAll();
+      }
+    } else {
+      await loadAll();
+    }
+
+    // Refresh meeting tab
+    switchMoreTab('meeting', document.querySelector('[onclick*="meeting"]'));
+
+  } catch(err) {
+    showToast('Payment failed: ' + err.message, 'error');
+  }
+}
+
+
 function autoCalcLPFLPC() {
   const balance = parseFloat(document.getElementById('f-balance')?.value) || 0;
   const lpf = 500; // Fixed
@@ -2168,7 +2218,10 @@ function renderMeetingTab() {
   const todayStr = today.toISOString().slice(0,10);
   const dayName = today.toLocaleDateString('en-US', {weekday:'long'});
 
-  // Group clients by meeting day (check finance_company OR meeting_day)
+  // Selected day — default aaj ka
+  const selectedDay = window._meetingSelectedDay || dayName;
+
+  // Group clients by meeting day
   const byDay = {};
   days.forEach(d => { byDay[d] = []; });
 
@@ -2181,9 +2234,50 @@ function renderMeetingTab() {
     if (matched) byDay[matched].push(cl);
   });
 
-  let html = '';
+  // Day selector buttons
+  let daySelector = `<div style="margin-bottom:12px">
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600">📅 Meeting Day Select करें:</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">`;
 
-  days.forEach(day => {
+  days.forEach(d => {
+    const short = d.split('/')[0].trim();
+    const isSelected = selectedDay === short;
+    const isToday = dayName === short;
+    const count = byDay[d]?.length || 0;
+    daySelector += `<button onclick="window._meetingSelectedDay='${short}';switchMoreTab('meeting')" 
+      style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;
+      background:${isSelected?'var(--navy)':isToday?'#dcfce7':'#f3f4f6'};
+      color:${isSelected?'white':isToday?'#166534':'var(--muted)'};
+      border:${isSelected?'none':isToday?'1px solid #86efac':'1px solid var(--border)'};
+      white-space:nowrap">
+      ${isToday?'⭐ ':''}${short} (${count})
+    </button>`;
+  });
+
+  daySelector += `<button onclick="window._meetingSelectedDay=null;switchMoreTab('meeting')" 
+    style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;
+    background:#fef3c7;color:#92400e;border:1px solid #fcd34d;white-space:nowrap">
+    📋 All Days
+  </button>`;
+  daySelector += `</div></div>`;
+
+  let html = daySelector;
+
+  // Filter days based on selection
+  const daysToShow = window._meetingSelectedDay 
+    ? days.filter(d => d.split('/')[0].trim() === selectedDay)
+    : days.filter(d => d.split('/')[0].trim() === dayName); // default: aaj ka din
+
+  if (!daysToShow.some(d => byDay[d]?.length > 0)) {
+    html += `<div style="text-align:center;padding:30px;color:var(--muted)">
+      <div style="font-size:30px">📋</div>
+      <div style="font-size:14px;font-weight:700;margin-top:8px">${selectedDay} ko koi meeting nahi!</div>
+      <div style="font-size:12px;margin-top:4px">Doosra din select karein</div>
+    </div>`;
+    return `<div style="padding:8px">${html}</div>`;
+  }
+
+  daysToShow.forEach(day => {
     const clients = byDay[day];
     if (!clients.length) return;
 
@@ -2307,7 +2401,9 @@ function renderMeetingTab() {
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right">'+fmt(iDue)+'</td>';
       html += '<td style="padding:5px 4px;border:1px solid #ddd;min-width:50px"></td>';
       html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:right;font-weight:700;color:green">'+fmt(emi)+'</td>';
-      html += '<td style="padding:5px 4px;border:1px solid #ddd;min-width:60px"></td>';
+      html += '<td style="padding:5px 4px;border:1px solid #ddd;text-align:center">'
+        + (outstandingP > 0 ? '<button onclick="quickPay(\''+cl.id+'\','+emi+')" style="background:#22c55e;color:white;border:none;border-radius:6px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">💳 Pay</button>' : '<span style="color:green;font-size:11px">✅ Done</span>')
+        + '</td>';
       html += '</tr>';
     });
 
