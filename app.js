@@ -3385,15 +3385,12 @@ function openApproveModal(id, name, email) {
   approvingEmployeeId = id;
   const info = document.getElementById('approve-emp-info');
   if (info) info.innerHTML = `<strong>${name}</strong><br><span style="color:var(--muted)">${email}</span>`;
-  document.getElementById('approve-password').value = '';
   document.getElementById('approve-admin-pass').value = '';
   openModal('approve-modal');
 }
 
 async function approveEmployee() {
-  const newPass = document.getElementById('approve-password').value.trim();
   const adminPass = document.getElementById('approve-admin-pass').value;
-  if (!newPass) { showToast('Enter employee password', 'error'); return; }
   if (!adminPass) { showToast('Enter your admin password', 'error'); return; }
 
   const { error: authErr } = await db.auth.signInWithPassword({
@@ -3401,9 +3398,10 @@ async function approveEmployee() {
   });
   if (authErr) { showToast('Wrong admin password! / गलत पासवर्ड!', 'error'); return; }
 
-  await db.from('profiles').update({
-    is_approved: true, approved_by: currentUser.id, login_password: newPass
+  const { error: updErr } = await db.from('profiles').update({
+    is_approved: true, approved_by: currentUser.id
   }).eq('id', approvingEmployeeId);
+  if (updErr) { showToast('Approve failed: ' + updErr.message, 'error'); return; }
 
   closeModal('approve-modal');
   showToast('Employee approved! ✅', 'success');
