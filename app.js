@@ -2469,20 +2469,106 @@ async function loadCollReg() {
 function printCashBook() {
   const day = document.getElementById('cb-day')?.value || '';
   const date = document.getElementById('cb-date')?.value || '';
-  const area = document.getElementById('cashbook-print-area');
-  if(!area) return;
-  const html = `<!DOCTYPE html><html><head><title>Cash Book - ${date}</title>
-  <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
-  th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
-  input{border:none;width:100%;text-align:right;font-size:12px}
-  @media print{@page{margin:10mm}}</style></head><body>
-  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
-  <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
-  ${area.innerHTML}</body></html>`;
-  const w = window.open('','_blank');
+
+  const gv = id => parseFloat(document.getElementById(id)?.value||0)||0;
+  const gi = id => parseInt(document.getElementById(id)?.value||0)||0;
+
+  const opening = gv('cb-opening');
+  const coll = gv('cb-coll');
+  const lpf = gv('cb-lpf');
+  const lpc = gv('cb-lpc');
+  const prepay = gv('cb-prepay');
+  const od = gv('cb-od');
+  const disb = gv('cb-disb');
+  const bank = gv('cb-bank');
+  const exp1 = gv('cb-exp1');
+  const exp2 = gv('cb-exp2');
+  const exp3 = gv('cb-exp3');
+  const totalReceipts = opening + coll + lpf + lpc + prepay + od;
+  const totalPayments = disb + bank + exp1 + exp2 + exp3;
+  const closing = totalReceipts - totalPayments;
+
+  const d2000 = gi('denom-2000'), d500 = gi('denom-500'), d200 = gi('denom-200');
+  const d100 = gi('denom-100'), d50 = gi('denom-50'), d20 = gi('denom-20');
+  const d10 = gi('denom-10'), coin = gv('denom-coin');
+  const denomTotal = d2000*2000+d500*500+d200*200+d100*100+d50*50+d20*20+d10*10+coin;
+
+  const row = (label, val, bold=false) =>
+    `<tr><td style="padding:6px 10px;border:1px solid #ddd;color:#555">${label}</td>
+     <td style="padding:6px 10px;border:1px solid #ddd;text-align:right;font-weight:${bold?'800':'400'}">${val>0?'₹'+val.toLocaleString('en-IN'):'—'}</td></tr>`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Cash Book - ${date}</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:15mm;font-size:13px}
+    h2{text-align:center;color:#1a2e4a;margin-bottom:4px}
+    .sub{text-align:center;font-size:12px;color:#666;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1a2e4a;color:white;padding:8px 10px;text-align:left}
+    .total-row td{background:#f0f4f8;font-weight:800;font-size:14px}
+    .closing td{background:#1a2e4a;color:white;font-weight:800;font-size:15px}
+    @media print{@page{margin:10mm}}
+  </style></head><body>
+  <h2>संकट मोचन Finance — Cash Book / नकद बही</h2>
+  <div class="sub">Day: <b>${day}</b> &nbsp;|&nbsp; Date: <b>${date}</b></div>
+
+  <div class="grid">
+    <table>
+      <tr><th colspan="2">📥 Receipts / आय</th></tr>
+      ${row('Opening / शेष', opening)}
+      ${row('Collection / संग्रह', coll)}
+      ${row('LPF', lpf)}
+      ${row('LPC', lpc)}
+      ${row('Prepayment / अग्रिम', prepay)}
+      ${row('Over Due / बकाया', od)}
+      <tr class="total-row"><td style="padding:6px 10px;border:1px solid #ddd">कुल / Total</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">₹${totalReceipts.toLocaleString('en-IN')}</td></tr>
+    </table>
+    <table>
+      <tr><th colspan="2">📤 Payments / व्यय</th></tr>
+      ${row('Disbursement / वितरण', disb)}
+      ${row('Bank Deposit / बैंक', bank)}
+      ${row('Expense 1 / व्यय', exp1)}
+      ${row('Expense 2 / व्यय', exp2)}
+      ${row('Expense 3 / व्यय', exp3)}
+      <tr class="total-row"><td style="padding:6px 10px;border:1px solid #ddd">कुल / Total</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">₹${totalPayments.toLocaleString('en-IN')}</td></tr>
+    </table>
+  </div>
+
+  <table style="margin-top:12px">
+    <tr class="closing">
+      <td style="padding:10px 14px;border:1px solid #1a2e4a">Closing Balance / समापन शेष</td>
+      <td style="padding:10px 14px;border:1px solid #1a2e4a;text-align:right">₹${closing.toLocaleString('en-IN')}</td>
+    </tr>
+  </table>
+
+  <h3 style="margin-top:16px;color:#1a2e4a">💵 Currency Denomination / नोट गणना</h3>
+  <table>
+    <tr>
+      <th>₹2000 × ${d2000}</th><th>₹500 × ${d500}</th><th>₹200 × ${d200}</th><th>₹100 × ${d100}</th>
+      <th>₹50 × ${d50}</th><th>₹20 × ${d20}</th><th>₹10 × ${d10}</th><th>Coins</th><th>Total</th>
+    </tr>
+    <tr>
+      <td style="text-align:right;padding:6px">${(d2000*2000).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${(d500*500).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${(d200*200).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${(d100*100).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${(d50*50).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${(d20*20).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${(d10*10).toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:6px">${coin}</td>
+      <td style="text-align:right;padding:6px;font-weight:800">₹${denomTotal.toLocaleString('en-IN')}</td>
+    </tr>
+  </table>
+
+  <script>window.onload=()=>{window.print();}</script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
-  w.print();
 }
 
 // ── COLLECTION REGISTER ────────────────────────────────────────────────────
@@ -3427,13 +3513,32 @@ function renderTeamPage(c) {
             ${e.id === currentUser.id
               ? '<span style="font-size:10px;color:var(--gold);font-weight:700">👑 You</span>'
               : e.is_approved
-                ? '<span style="font-size:10px;color:var(--success);font-weight:700">✅ Approved</span>'
-                : `<button onclick="openApproveModal('${e.id}','${e.name}','${e.email}')" style="background:#22c55e;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">✅ Approve</button>`
+                ? `<div style="display:flex;gap:4px">
+                    <span style="font-size:10px;color:var(--success);font-weight:700">✅ Approved</span>
+                    <button onclick="removeEmployee('${e.id}','${e.name}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer">🚪 Exit</button>
+                  </div>`
+                : `<div style="display:flex;gap:4px">
+                    <button onclick="openApproveModal('${e.id}','${e.name}','${e.email}')" style="background:#22c55e;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">✅ Approve</button>
+                    <button onclick="removeEmployee('${e.id}','${e.name}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer">❌</button>
+                  </div>`
             }
           </div>
         </div>`).join('')}
   `;
 }
+
+async function removeEmployee(empId, empName) {
+  if (!confirm(`🚪 "${empName}" ko team se remove karein?\n\nYeh employee login nahi kar payega.`)) return;
+  try {
+    const { error } = await db.from('profiles').delete().eq('id', empId);
+    if (error) throw error;
+    showToast(`✅ ${empName} removed!`, 'success');
+    showPage('team');
+  } catch(err) {
+    showToast('Remove failed: ' + err.message, 'error');
+  }
+}
+
 
 function openApproveModal(id, name, email) {
   approvingEmployeeId = id;
