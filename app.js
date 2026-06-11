@@ -3373,7 +3373,8 @@ function renderTeamPage(c) {
             ${e.id === currentUser.id
               ? '<span style="font-size:10px;color:var(--gold);font-weight:700">👑 You</span>'
               : e.is_approved
-                ? '<span style="font-size:10px;color:var(--success);font-weight:700">✅ Approved</span>'
+                ? `<span style="font-size:10px;color:var(--success);font-weight:700">✅ Approved</span>
+                   <button onclick="deactivateEmployee('${e.id}','${(e.name||'').replace(/'/g,"\\'")}')" style="background:#ef4444;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🚫 Deactivate</button>`
                 : `<button onclick="openApproveModal('${e.id}','${e.name}','${e.email}')" style="background:#22c55e;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">✅ Approve</button>`
             }
           </div>
@@ -3387,6 +3388,27 @@ function openApproveModal(id, name, email) {
   if (info) info.innerHTML = `<strong>${name}</strong><br><span style="color:var(--muted)">${email}</span>`;
   document.getElementById('approve-admin-pass').value = '';
   openModal('approve-modal');
+}
+
+// ── EMPLOYEE EXIT / DEACTIVATE ────────────
+async function deactivateEmployee(empId, empName) {
+  if (!confirm(`${empName} ko deactivate karein?\n\n• Login band ho jayega (data access turant block)\n• Unke saare clients aapko (admin) transfer ho jayenge\n\nConfirm?`)) return;
+
+  // 1. Access band karo
+  const { error: e1 } = await db.from('profiles')
+    .update({ is_approved: false })
+    .eq('id', empId);
+  if (e1) { showToast('Deactivate failed: ' + e1.message, 'error'); return; }
+
+  // 2. Unke clients admin ko reassign karo (taaki collection na ruke)
+  const { error: e2 } = await db.from('clients')
+    .update({ assigned_to: currentUser.id })
+    .eq('assigned_to', empId);
+  if (e2) { showToast('Clients reassign failed: ' + e2.message, 'error'); return; }
+
+  showToast(`${empName} deactivated ✅ Clients aapko transfer ho gaye.`, 'success');
+  await loadAll();
+  showPage('team');
 }
 
 async function approveEmployee() {
