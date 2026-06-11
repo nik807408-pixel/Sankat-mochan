@@ -121,91 +121,12 @@ async function manualRefresh() {
   if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
 }
 
-// ── DEMO MODE — no login required ────────
-async function initDemoApp() {
-  currentUser = { id: null, email: 'demo@dhanraksha.com' };
-  currentProfile = { id: null, name: 'Demo Admin', role: 'admin' };
-
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-
-  document.getElementById('uname').textContent = 'Demo';
-  const rp = document.getElementById('urole');
-  rp.textContent = 'Admin';
-  rp.className = 'role-pill role-admin';
-
-  await loadAll();
-  showPage('dashboard');
-  startAutoRefresh();
-}
-
-function showDemoLogin() {
-  const authScreen = document.getElementById('auth-screen');
-  authScreen.style.display = 'flex';
-  authScreen.innerHTML = `
-    <div style="width:100%;max-width:380px;margin:auto;padding:24px">
-      <!-- Logo -->
-      <div style="text-align:center;margin-bottom:32px">
-        <div style="width:72px;height:72px;background:linear-gradient(135deg,#1a2e4a,#d97706);border-radius:20px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(26,46,74,.3)">
-          <svg viewBox="0 0 52 52" width="44" height="44">
-            <circle cx="26" cy="26" r="24" fill="rgba(255,255,255,.15)"/>
-            <text x="26" y="22" text-anchor="middle" font-family="serif" font-size="13" font-weight="700" fill="white">धन</text>
-            <text x="26" y="37" text-anchor="middle" font-family="serif" font-size="13" font-weight="700" fill="#FFD700">रक्षा</text>
-          </svg>
-        </div>
-        <div style="font-size:22px;font-weight:800;color:white">धन <span style="color:#d97706">रक्षा</span></div>
-        <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:4px">Demo Finance App</div>
-      </div>
-
-      <!-- Login Card -->
-      <div style="background:white;border-radius:20px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-        <div style="font-size:18px;font-weight:700;color:#1a2e4a;margin-bottom:4px">Welcome! 👋</div>
-        <div style="font-size:12px;color:#64748b;margin-bottom:20px">Demo account mein login karein</div>
-
-        <div style="margin-bottom:14px">
-          <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Username</label>
-          <input id="demo-user" type="text" placeholder="demo" value="demo"
-            style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;margin-top:4px;outline:none;box-sizing:border-box;color:#1a2e4a"
-            onfocus="this.style.borderColor='#1a2e4a'" onblur="this.style.borderColor='#e2e8f0'">
-        </div>
-
-        <div style="margin-bottom:20px">
-          <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Password</label>
-          <input id="demo-pass" type="password" placeholder="demo@123" value="demo@123"
-            style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:14px;margin-top:4px;outline:none;box-sizing:border-box;color:#1a2e4a"
-            onfocus="this.style.borderColor='#1a2e4a'" onblur="this.style.borderColor='#e2e8f0'"
-            onkeydown="if(event.key==='Enter') demoLogin()">
-        </div>
-
-        <div id="demo-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:14px">
-          ❌ Username ya Password galat hai!
-        </div>
-
-        <button onclick="demoLogin()" style="width:100%;background:linear-gradient(135deg,#1a2e4a,#2d4a7a);color:white;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(26,46,74,.3)">
-          Login / प्रवेश करें
-        </button>
-
-        <div style="text-align:center;margin-top:14px;padding:10px;background:#f8fafc;border-radius:8px">
-          <div style="font-size:11px;color:#64748b;font-weight:600">Demo Credentials:</div>
-          <div style="font-size:12px;color:#1a2e4a;margin-top:2px">User: <strong>demo</strong> | Pass: <strong>demo@123</strong></div>
-        </div>
-      </div>
-    </div>`;
-}
-
-function demoLogin() {
-  const user = document.getElementById('demo-user')?.value.trim();
-  const pass = document.getElementById('demo-pass')?.value.trim();
-  const errEl = document.getElementById('demo-error');
-
-  if (user === 'demo' && pass === 'demo@123') {
-    sessionStorage.setItem('demoLoggedIn', 'true');
-    if (errEl) errEl.style.display = 'none';
-    initDemoApp();
-  } else {
-    if (errEl) errEl.style.display = 'block';
-  }
-}
+// ── DEMO MODE — DISABLED in production (Sankat Mochan) ────────
+// Demo login Dhan Raksha demo app ke liye tha. Production me real
+// Supabase auth use hota hai. Yeh stubs accidental/console call rok dete hain.
+async function initDemoApp() { showAuth(); }
+function showDemoLogin() { showAuth(); }
+function demoLogin() { showAuth(); }
 
 // ── APP INIT ─────────────────────────────
 async function initApp(user) {
@@ -244,11 +165,40 @@ async function loadAll() {
 }
 
 // ── DATA LOADING ──────────────────────────
+
+// Private bucket: stored value ab 'path' hai. Display ke liye signed URL banao.
+// Purani rows me full public URL ho sakti hai — usme se path nikaal lo.
+function extractStoragePath(stored) {
+  if (!stored) return '';
+  const marker = '/client-photos/';
+  const i = stored.indexOf(marker);
+  if (i !== -1) return stored.substring(i + marker.length).split('?')[0];
+  return stored; // already a path
+}
+
+async function signOne(stored) {
+  const path = extractStoragePath(stored);
+  if (!path) return '';
+  try {
+    const { data } = await db.storage.from('client-photos').createSignedUrl(path, 3600);
+    return data?.signedUrl || '';
+  } catch (e) { console.error('Sign URL error:', e); return ''; }
+}
+
+async function hydratePhotoUrls(clients) {
+  await Promise.all(clients.map(async (c) => {
+    if (c.photo_url)     c.photo_url     = await signOne(c.photo_url);
+    if (c.aadhaar_photo) c.aadhaar_photo = await signOne(c.aadhaar_photo);
+    if (c.pan_photo)     c.pan_photo     = await signOne(c.pan_photo);
+  }));
+}
+
 async function loadClients() {
   let q = db.from('clients').select('*').order('created_at', { ascending: false });
   if (currentProfile.role !== 'admin') q = q.eq('assigned_to', currentUser.id);
   const { data } = await q;
   allClients = data || [];
+  await hydratePhotoUrls(allClients);
 }
 
 async function loadEmployees() {
@@ -670,8 +620,7 @@ async function uploadPhotosInBackground(clientId) {
       const path = `${currentUser.id}/profile_${Date.now()}.jpg`;
       const { data: up, error: e1 } = await db.storage.from('client-photos').upload(path, selectedPhotoFile, { upsert: true, contentType: 'image/jpeg' });
       if (up) {
-        const { data: pu } = db.storage.from('client-photos').getPublicUrl(path);
-        updates.photo_url = pu.publicUrl;
+        updates.photo_url = path;
       }
       if (e1) console.error('Profile photo error:', e1.message);
     }
@@ -679,8 +628,7 @@ async function uploadPhotosInBackground(clientId) {
       const path = `${currentUser.id}/aadhaar_${Date.now()}.jpg`;
       const { data: up, error: e2 } = await db.storage.from('client-photos').upload(path, aadhaarPhotoFile, { upsert: true, contentType: 'image/jpeg' });
       if (up) {
-        const { data: pu } = db.storage.from('client-photos').getPublicUrl(path);
-        updates.aadhaar_photo = pu.publicUrl;
+        updates.aadhaar_photo = path;
       }
       if (e2) console.error('Aadhaar photo error:', e2.message);
     }
@@ -688,8 +636,7 @@ async function uploadPhotosInBackground(clientId) {
       const path = `${currentUser.id}/pan_${Date.now()}.jpg`;
       const { data: up, error: e3 } = await db.storage.from('client-photos').upload(path, panPhotoFile, { upsert: true, contentType: 'image/jpeg' });
       if (up) {
-        const { data: pu } = db.storage.from('client-photos').getPublicUrl(path);
-        updates.pan_photo = pu.publicUrl;
+        updates.pan_photo = path;
       }
       if (e3) console.error('PAN photo error:', e3.message);
     }
@@ -987,8 +934,7 @@ async function saveClient() {
       const path = currentUser.id + '/profile_' + Date.now() + '.jpg';
       const { data: up, error: upErr } = await db.storage.from('client-photos').upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
       if (up) {
-        const { data: pu } = db.storage.from('client-photos').getPublicUrl(path);
-        photoUrl = pu.publicUrl;
+        photoUrl = path;
       } else if (upErr) console.error('Profile upload error:', upErr);
     } catch(e) { console.error('Profile compress error:', e); }
   }
@@ -1000,7 +946,7 @@ async function saveClient() {
       const compressed = await compressImage(aadhaarPhotoFile, 50);
       const path = currentUser.id + '/aadhaar_' + Date.now() + '.jpg';
       const { data: up } = await db.storage.from('client-photos').upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
-      if (up) { const { data: pu } = db.storage.from('client-photos').getPublicUrl(path); payload.aadhaar_photo = pu.publicUrl; }
+      if (up) { payload.aadhaar_photo = path; }
     } catch(e) { console.error('Aadhaar upload error:', e); }
   }
 
@@ -1011,7 +957,7 @@ async function saveClient() {
       const compressed = await compressImage(panPhotoFile, 50);
       const path = currentUser.id + '/pan_' + Date.now() + '.jpg';
       const { data: up } = await db.storage.from('client-photos').upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
-      if (up) { const { data: pu } = db.storage.from('client-photos').getPublicUrl(path); payload.pan_photo = pu.publicUrl; }
+      if (up) { payload.pan_photo = path; }
     } catch(e) { console.error('PAN upload error:', e); }
   }
 
@@ -2469,106 +2415,20 @@ async function loadCollReg() {
 function printCashBook() {
   const day = document.getElementById('cb-day')?.value || '';
   const date = document.getElementById('cb-date')?.value || '';
-
-  const gv = id => parseFloat(document.getElementById(id)?.value||0)||0;
-  const gi = id => parseInt(document.getElementById(id)?.value||0)||0;
-
-  const opening = gv('cb-opening');
-  const coll = gv('cb-coll');
-  const lpf = gv('cb-lpf');
-  const lpc = gv('cb-lpc');
-  const prepay = gv('cb-prepay');
-  const od = gv('cb-od');
-  const disb = gv('cb-disb');
-  const bank = gv('cb-bank');
-  const exp1 = gv('cb-exp1');
-  const exp2 = gv('cb-exp2');
-  const exp3 = gv('cb-exp3');
-  const totalReceipts = opening + coll + lpf + lpc + prepay + od;
-  const totalPayments = disb + bank + exp1 + exp2 + exp3;
-  const closing = totalReceipts - totalPayments;
-
-  const d2000 = gi('denom-2000'), d500 = gi('denom-500'), d200 = gi('denom-200');
-  const d100 = gi('denom-100'), d50 = gi('denom-50'), d20 = gi('denom-20');
-  const d10 = gi('denom-10'), coin = gv('denom-coin');
-  const denomTotal = d2000*2000+d500*500+d200*200+d100*100+d50*50+d20*20+d10*10+coin;
-
-  const row = (label, val, bold=false) =>
-    `<tr><td style="padding:6px 10px;border:1px solid #ddd;color:#555">${label}</td>
-     <td style="padding:6px 10px;border:1px solid #ddd;text-align:right;font-weight:${bold?'800':'400'}">${val>0?'₹'+val.toLocaleString('en-IN'):'—'}</td></tr>`;
-
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Cash Book - ${date}</title>
-  <style>
-    body{font-family:Arial,sans-serif;margin:15mm;font-size:13px}
-    h2{text-align:center;color:#1a2e4a;margin-bottom:4px}
-    .sub{text-align:center;font-size:12px;color:#666;margin-bottom:16px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    table{width:100%;border-collapse:collapse}
-    th{background:#1a2e4a;color:white;padding:8px 10px;text-align:left}
-    .total-row td{background:#f0f4f8;font-weight:800;font-size:14px}
-    .closing td{background:#1a2e4a;color:white;font-weight:800;font-size:15px}
-    @media print{@page{margin:10mm}}
-  </style></head><body>
-  <h2>संकट मोचन Finance — Cash Book / नकद बही</h2>
-  <div class="sub">Day: <b>${day}</b> &nbsp;|&nbsp; Date: <b>${date}</b></div>
-
-  <div class="grid">
-    <table>
-      <tr><th colspan="2">📥 Receipts / आय</th></tr>
-      ${row('Opening / शेष', opening)}
-      ${row('Collection / संग्रह', coll)}
-      ${row('LPF', lpf)}
-      ${row('LPC', lpc)}
-      ${row('Prepayment / अग्रिम', prepay)}
-      ${row('Over Due / बकाया', od)}
-      <tr class="total-row"><td style="padding:6px 10px;border:1px solid #ddd">कुल / Total</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">₹${totalReceipts.toLocaleString('en-IN')}</td></tr>
-    </table>
-    <table>
-      <tr><th colspan="2">📤 Payments / व्यय</th></tr>
-      ${row('Disbursement / वितरण', disb)}
-      ${row('Bank Deposit / बैंक', bank)}
-      ${row('Expense 1 / व्यय', exp1)}
-      ${row('Expense 2 / व्यय', exp2)}
-      ${row('Expense 3 / व्यय', exp3)}
-      <tr class="total-row"><td style="padding:6px 10px;border:1px solid #ddd">कुल / Total</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">₹${totalPayments.toLocaleString('en-IN')}</td></tr>
-    </table>
-  </div>
-
-  <table style="margin-top:12px">
-    <tr class="closing">
-      <td style="padding:10px 14px;border:1px solid #1a2e4a">Closing Balance / समापन शेष</td>
-      <td style="padding:10px 14px;border:1px solid #1a2e4a;text-align:right">₹${closing.toLocaleString('en-IN')}</td>
-    </tr>
-  </table>
-
-  <h3 style="margin-top:16px;color:#1a2e4a">💵 Currency Denomination / नोट गणना</h3>
-  <table>
-    <tr>
-      <th>₹2000 × ${d2000}</th><th>₹500 × ${d500}</th><th>₹200 × ${d200}</th><th>₹100 × ${d100}</th>
-      <th>₹50 × ${d50}</th><th>₹20 × ${d20}</th><th>₹10 × ${d10}</th><th>Coins</th><th>Total</th>
-    </tr>
-    <tr>
-      <td style="text-align:right;padding:6px">${(d2000*2000).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${(d500*500).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${(d200*200).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${(d100*100).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${(d50*50).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${(d20*20).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${(d10*10).toLocaleString('en-IN')}</td>
-      <td style="text-align:right;padding:6px">${coin}</td>
-      <td style="text-align:right;padding:6px;font-weight:800">₹${denomTotal.toLocaleString('en-IN')}</td>
-    </tr>
-  </table>
-
-  <script>window.onload=()=>{window.print();}</script>
-  </body></html>`;
-
-  const w = window.open('', '_blank');
+  const area = document.getElementById('cashbook-print-area');
+  if(!area) return;
+  const html = `<!DOCTYPE html><html><head><title>Cash Book - ${date}</title>
+  <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
+  input{border:none;width:100%;text-align:right;font-size:12px}
+  @media print{@page{margin:10mm}}</style></head><body>
+  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
+  <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
+  ${area.innerHTML}</body></html>`;
+  const w = window.open('','_blank');
   w.document.write(html);
   w.document.close();
+  w.print();
 }
 
 // ── COLLECTION REGISTER ────────────────────────────────────────────────────
@@ -3513,32 +3373,13 @@ function renderTeamPage(c) {
             ${e.id === currentUser.id
               ? '<span style="font-size:10px;color:var(--gold);font-weight:700">👑 You</span>'
               : e.is_approved
-                ? `<div style="display:flex;gap:4px">
-                    <span style="font-size:10px;color:var(--success);font-weight:700">✅ Approved</span>
-                    <button onclick="removeEmployee('${e.id}','${e.name}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer">🚪 Exit</button>
-                  </div>`
-                : `<div style="display:flex;gap:4px">
-                    <button onclick="openApproveModal('${e.id}','${e.name}','${e.email}')" style="background:#22c55e;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">✅ Approve</button>
-                    <button onclick="removeEmployee('${e.id}','${e.name}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:6px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer">❌</button>
-                  </div>`
+                ? '<span style="font-size:10px;color:var(--success);font-weight:700">✅ Approved</span>'
+                : `<button onclick="openApproveModal('${e.id}','${e.name}','${e.email}')" style="background:#22c55e;color:white;border:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">✅ Approve</button>`
             }
           </div>
         </div>`).join('')}
   `;
 }
-
-async function removeEmployee(empId, empName) {
-  if (!confirm(`🚪 "${empName}" ko team se remove karein?\n\nYeh employee login nahi kar payega.`)) return;
-  try {
-    const { error } = await db.from('profiles').delete().eq('id', empId);
-    if (error) throw error;
-    showToast(`✅ ${empName} removed!`, 'success');
-    showPage('team');
-  } catch(err) {
-    showToast('Remove failed: ' + err.message, 'error');
-  }
-}
-
 
 function openApproveModal(id, name, email) {
   approvingEmployeeId = id;
