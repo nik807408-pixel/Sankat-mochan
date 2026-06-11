@@ -1345,7 +1345,7 @@ function renderInvoicesPage(c) {
     <button onclick="moreTab=null;showPage('invoices')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--muted)">← वापस / Back</button>
   </div>
   <div id="more-content">
-    ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : renderMeetingTab()}
+    ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : moreTab==='monthly' ? renderMonthlyReportTab() : renderMeetingTab()}
   </div>
   ` : `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px">
@@ -1386,6 +1386,19 @@ function renderInvoicesPage(c) {
       <div style="font-size:10px;opacity:.7;margin-top:2px">संग्रह रजिस्टर</div>
     </div>
 
+    <div onclick="moreTab='monthly';showPage('invoices')" style="background:linear-gradient(135deg,#0f766e,#14b8a6);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(15,118,110,.3)">
+      <div style="font-size:32px;margin-bottom:8px">📊</div>
+      <div style="font-size:14px;font-weight:700">Monthly Report</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">मासिक रिपोर्ट</div>
+    </div>
+
+    ${currentProfile.role === 'admin' ? `
+    <div onclick="showPage('team')" style="background:linear-gradient(135deg,#9d174d,#db2777);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(157,23,77,.3)">
+      <div style="font-size:32px;margin-bottom:8px">🏢</div>
+      <div style="font-size:14px;font-weight:700">Team / टीम</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">Employee Management</div>
+    </div>` : ''}
+
   </div>
   `}
   `;
@@ -1396,7 +1409,7 @@ function switchMoreTab(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const c = document.getElementById('more-content');
-  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : tab==='clients' ? renderClientsTab() : renderMeetingTab();
+  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : tab==='clients' ? renderClientsTab() : tab==='monthly' ? renderMonthlyReportTab() : renderMeetingTab();
 }
 
 function renderClientsTab() {
@@ -1845,6 +1858,114 @@ async function submitRenewal(clientId) {
   }
 }
 
+
+// ── MONTHLY REPORT ────────────────────────
+let monthlyMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+function renderMonthlyReportTab() {
+  return `
+  <div class="section-hdr no-print">
+    <div class="section-title">📊 Monthly Report <span class="hindi">/ मासिक रिपोर्ट</span></div>
+  </div>
+  <div class="no-print" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+    <input type="month" id="mr-month" value="${monthlyMonth}" onchange="monthlyMonth=this.value;refreshMonthlyReport()"
+      style="border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px">
+    <button onclick="printMonthlyReport()" style="background:var(--navy);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">🖨️ Print</button>
+  </div>
+  <div id="monthly-print-area">${buildMonthlyReportHTML(monthlyMonth)}</div>`;
+}
+
+function refreshMonthlyReport() {
+  const area = document.getElementById('monthly-print-area');
+  if (area) area.innerHTML = buildMonthlyReportHTML(monthlyMonth);
+}
+
+function buildMonthlyReportHTML(month) {
+  const inMonth = d => (d || '').startsWith(month);
+  const fmt = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+
+  const pays = (allPayments || []).filter(p =>
+    inMonth(p.date)
+    && !(p.description || '').includes('DELETED')
+    && !(p.description || '').includes('Reversal')
+  );
+  const credits = pays.filter(p => p.type === 'credit');
+  const debits  = pays.filter(p => p.type === 'debit');
+  const totalColl = credits.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const totalDisb = debits.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const newClients = (allClients || []).filter(c => inMonth((c.created_at || '').slice(0, 10)));
+  const newLoans = (allClients || []).filter(c => inMonth(c.loan_date || ''));
+  const loanDisbAmt = newLoans.reduce((s, c) => s + Number(c.loan_amount || 0), 0);
+
+  // Employee-wise collection
+  const byEmp = {};
+  credits.forEach(p => {
+    const k = p.created_by || 'unknown';
+    if (!byEmp[k]) byEmp[k] = { count: 0, amount: 0 };
+    byEmp[k].count++; byEmp[k].amount += Number(p.amount || 0);
+  });
+  const empName = id => (allEmployees || []).find(e => e.id === id)?.name || '—';
+  const empRows = Object.entries(byEmp)
+    .sort((a, b) => b[1].amount - a[1].amount)
+    .map(([id, v]) => `<tr>
+      <td style="border:1px solid #ddd;padding:6px;font-size:12px">${empName(id)}</td>
+      <td style="border:1px solid #ddd;padding:6px;font-size:12px;text-align:center">${v.count}</td>
+      <td style="border:1px solid #ddd;padding:6px;font-size:12px;text-align:right;font-weight:700">${fmt(v.amount)}</td>
+    </tr>`).join('');
+
+  const [yy, mm] = month.split('-');
+  const monthLabel = new Date(yy, mm - 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+  const card = (label, hindi, value, color) => `
+    <div style="background:white;border-radius:14px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08);border-left:4px solid ${color}">
+      <div style="font-size:11px;color:var(--muted);font-weight:600">${label} <span style="opacity:.7">/ ${hindi}</span></div>
+      <div style="font-size:20px;font-weight:800;color:var(--navy);margin-top:4px">${value}</div>
+    </div>`;
+
+  return `
+  <div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;text-align:center;box-shadow:0 2px 8px rgba(15,37,71,.08)">
+    <div style="font-size:16px;font-weight:800;color:var(--navy)">संकट मोचन Finance — Monthly Report</div>
+    <div style="font-size:12px;color:var(--muted)">${monthLabel}</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+    ${card('Total Collection', 'कुल वसूली', fmt(totalColl), '#22c55e')}
+    ${card('Disbursement (Payments)', 'भुगतान', fmt(totalDisb), '#ef4444')}
+    ${card('New Loans Issued', 'नए लोन', newLoans.length + ' (' + fmt(loanDisbAmt) + ')', '#d97706')}
+    ${card('New Clients', 'नए ग्राहक', String(newClients.length), '#1d4ed8')}
+    ${card('Transactions', 'लेन-देन', String(pays.length), '#7c3aed')}
+    ${card('Net Cash Flow', 'शुद्ध नकदी', fmt(totalColl - totalDisb), totalColl - totalDisb >= 0 ? '#22c55e' : '#ef4444')}
+  </div>
+
+  <div style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
+    <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">Employee-wise Collection <span class="hindi">/ कर्मचारी-वार वसूली</span></div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#1a2e4a;color:white">
+        <th style="border:1px solid #ddd;padding:6px;font-size:12px;text-align:left">Employee</th>
+        <th style="border:1px solid #ddd;padding:6px;font-size:12px">Entries</th>
+        <th style="border:1px solid #ddd;padding:6px;font-size:12px;text-align:right">Amount</th>
+      </tr></thead>
+      <tbody>${empRows || '<tr><td colspan="3" style="border:1px solid #ddd;padding:10px;text-align:center;font-size:12px;color:var(--muted)">Is month me koi collection entry nahi</td></tr>'}</tbody>
+      ${empRows ? `<tfoot><tr style="background:#f8fafc;font-weight:800">
+        <td style="border:1px solid #ddd;padding:6px;font-size:12px">TOTAL</td>
+        <td style="border:1px solid #ddd;padding:6px;font-size:12px;text-align:center">${credits.length}</td>
+        <td style="border:1px solid #ddd;padding:6px;font-size:12px;text-align:right">${fmt(totalColl)}</td>
+      </tr></tfoot>` : ''}
+    </table>
+  </div>`;
+}
+
+function printMonthlyReport() {
+  const html = `<!DOCTYPE html><html><head><title>Monthly Report - ${monthlyMonth}</title>
+  <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
+  th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
+  @media print{@page{margin:10mm}}</style></head><body>
+  ${getPrintableHTML('monthly-print-area')}</body></html>`;
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 300);
+}
 
 function renderCashBookTab() {
   const today = new Date().toISOString().slice(0,10);
@@ -2412,6 +2533,26 @@ async function loadCollReg() {
   }
 }
 
+// Print fix: innerHTML me typed input values nahi aate (isi se 00 dikhta tha).
+// Yeh helper inputs ko unki live value ke text se replace karke print HTML deta hai.
+function getPrintableHTML(areaId) {
+  const area = document.getElementById(areaId);
+  if (!area) return '';
+  const clone = area.cloneNode(true);
+  const orig = area.querySelectorAll('input, select, textarea');
+  const cl = clone.querySelectorAll('input, select, textarea');
+  orig.forEach((inp, i) => {
+    const span = document.createElement('span');
+    span.textContent = inp.tagName === 'SELECT'
+      ? (inp.options[inp.selectedIndex]?.text || '')
+      : (inp.value || '');
+    span.style.cssText = 'display:inline-block;width:100%;text-align:' + (inp.style.textAlign || 'left');
+    if (cl[i]) cl[i].replaceWith(span);
+  });
+  clone.querySelectorAll('button').forEach(b => b.remove());
+  return clone.innerHTML;
+}
+
 function printCashBook() {
   const day = document.getElementById('cb-day')?.value || '';
   const date = document.getElementById('cb-date')?.value || '';
@@ -2420,11 +2561,10 @@ function printCashBook() {
   const html = `<!DOCTYPE html><html><head><title>Cash Book - ${date}</title>
   <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
   th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
-  input{border:none;width:100%;text-align:right;font-size:12px}
   @media print{@page{margin:10mm}}</style></head><body>
   <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
   <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
-  ${area.innerHTML}</body></html>`;
+  ${getPrintableHTML('cashbook-print-area')}</body></html>`;
   const w = window.open('','_blank');
   w.document.write(html);
   w.document.close();
@@ -2604,9 +2744,9 @@ function printCollReg() {
   const html = `<!DOCTYPE html><html><head><title>Collection Register - ${date}</title>
   <style>body{font-family:Arial,sans-serif;margin:8mm;font-size:11px}
   table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:5px;font-size:10px}
-  th{background:#1a2e4a;color:white}input{border:none;font-size:10px;width:100%}
+  th{background:#1a2e4a;color:white}
   button{display:none}@media print{@page{size:landscape;margin:8mm}}</style>
-  </head><body>${area.innerHTML}</body></html>`;
+  </head><body>${getPrintableHTML('collreg-print-area')}</body></html>`;
   const w = window.open('','_blank');
   w.document.write(html);
   w.document.close();
