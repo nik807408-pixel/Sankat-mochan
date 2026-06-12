@@ -926,6 +926,8 @@ async function saveClient() {
   btn.disabled = true; btn.textContent = '📸 Uploading...';
 
   let photoUrl = null;
+  let aadhaarPhotoPath = null;
+  let panPhotoPath = null;
   // Upload profile photo first
   if (selectedPhotoFile) {
     btn.textContent = '📸 Profile photo...';
@@ -946,7 +948,7 @@ async function saveClient() {
       const compressed = await compressImage(aadhaarPhotoFile, 50);
       const path = currentUser.id + '/aadhaar_' + Date.now() + '.jpg';
       const { data: up } = await db.storage.from('client-photos').upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
-      if (up) { payload.aadhaar_photo = path; }
+      if (up) { aadhaarPhotoPath = path; }
     } catch(e) { console.error('Aadhaar upload error:', e); }
   }
 
@@ -957,7 +959,7 @@ async function saveClient() {
       const compressed = await compressImage(panPhotoFile, 50);
       const path = currentUser.id + '/pan_' + Date.now() + '.jpg';
       const { data: up } = await db.storage.from('client-photos').upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
-      if (up) { payload.pan_photo = path; }
+      if (up) { panPhotoPath = path; }
     } catch(e) { console.error('PAN upload error:', e); }
   }
 
@@ -1010,6 +1012,8 @@ async function saveClient() {
   };
   if (custId) payload.customer_id = custId;
   if (photoUrl) payload.photo_url = photoUrl;
+  if (aadhaarPhotoPath) payload.aadhaar_photo = aadhaarPhotoPath;
+  if (panPhotoPath) payload.pan_photo = panPhotoPath;
   console.log('Final payload photo_url:', photoUrl);
   console.log('Saving client with', Object.keys(payload).filter(k => payload[k]).length, 'fields');
 
@@ -2408,6 +2412,241 @@ function voiceNote(targetId) {
     }
     showToast(`📝 Note added: "${text}"`, 'success');
   });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// VOICE ASSISTANT — payment entry & balance lookup, with confirmation
+// ═══════════════════════════════════════════════════════════════
+let voiceRecognition = null;
+let voicePendingPayment = null; // {clientId, amount}
+
+function toggleVoiceAssistant() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    showToast('Browser mic support nahi hai! Chrome use karein.', 'error');
+    return;
+  }
+  const fab = document.getElementById('voice-fab');
+  if (fab.classList.contains('listening')) {
+    voiceRecognition?.stop();
+    return;
+  }
+
+  const overlay = document.getElementById('voice-overlay');
+  const status = document.getElementById('voice-status');
+  const body = document.getElementById('voice-body');
+  body.innerHTML = '';
+  status.textContent = '🎤 बोलिए... / Speak now...';
+  overlay.classList.add('show');
+  fab.classList.add('listening');
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = 'en-IN';
+  voiceRecognition.interimResults = true;
+  voiceRecognition.maxAlternatives = 1;
+
+  voiceRecognition.onresult = (e) => {
+    let text = '';
+    for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+    status.innerHTML = `<div class="voice-transcript">"${text}"</div>`;
+    if (e.results[0].isFinal) {
+      fab.classList.remove('listening');
+      handleVoiceCommand(text.trim());
+    }
+  };
+  voiceRecognition.onerror = (e) => {
+    fab.classList.remove('listening');
+    status.textContent = '';
+    body.innerHTML = `<div style="text-align:center;color:var(--danger);padding:10px">⚠️ Mic error: ${e.error}. Dobara try karein.</div>`;
+  };
+  voiceRecognition.onend = () => { fab.classList.remove('listening'); };
+  voiceRecognition.start();
+}
+
+function closeVoiceSheet() {
+  document.getElementById('voice-overlay').classList.remove('show');
+  document.getElementById('voice-fab').classList.remove('listening');
+  voiceRecognition?.stop();
+}
+
+function speak(text) {
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'hi-IN';
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// Devanagari → Roman, basic phonetic transliteration (helps match English-typed client names)
+function transliterateDevanagari(text) {
+  const map = {
+    'अ':'a','आ':'a','इ':'i','ई':'i','उ':'u','ऊ':'u','ए':'e','ऐ':'ai','ओ':'o','औ':'au',
+    'क':'k','ख':'kh','ग':'g','घ':'gh','च':'ch','छ':'chh','ज':'j','झ':'jh','ञ':'n',
+    'ट':'t','ठ':'th','ड':'d','ढ':'dh','ण':'n','त':'t','थ':'th','द':'d','ध':'dh','न':'n',
+    'प':'p','फ':'ph','ब':'b','भ':'bh','म':'m','य':'y','र':'r','ल':'l','व':'v','श':'sh','ष':'sh','स':'s','ह':'h',
+    'ं':'n','ँ':'n','ः':'h','्':'',
+    'ा':'a','ि':'i','ी':'i','ु':'u','ू':'u','े':'e','ै':'ai','ो':'o','ौ':'au','ृ':'ri'
+  };
+  let out = '';
+  for (const ch of text) out += (map[ch] !== undefined ? map[ch] : ch);
+  return out;
+}
+
+function normalizeForMatch(s) {
+  return (s || '').toLowerCase().replace(/[^\u0900-\u097Fa-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+const VOICE_PAY_WORDS = ['jama','jamaa','jma','collect','payment','pay','wasool','vasool','liya','diya','bharo','bhara','जमा','वसूल','भरो','भरा'];
+const VOICE_BAL_WORDS = ['balance','baki','bakaya','outstanding','kitna','kitni','batao','बैलेंस','बाकी','बकाया','कितना','कितनी','बताओ'];
+const VOICE_NUM_WORDS = {
+  'pachas':50,'pachaas':50,'पचास':50,
+  'ek sau':100,'sau':100,'ek so':100,'सौ':100,'एक सौ':100,
+  'do sau':200,'दो सौ':200,
+  'teen sau':300,'तीन सौ':300,
+  'char sau':400,'चार सौ':400,
+  'paanch sau':500,'panch sau':500,'पांच सौ':500,
+  'das sau':1000,'दस सौ':1000,
+  'ek hazar':1000,'ek hazaar':1000,'hazar':1000,'hazaar':1000,'एक हज़ार':1000,'एक हजार':1000,'हज़ार':1000,'हजार':1000,
+  'do hazar':2000,'do hazaar':2000,'दो हज़ार':2000,'दो हजार':2000,
+  'paanch hazar':5000,'paanch hazaar':5000,'पांच हज़ार':5000,'पांच हजार':5000,
+  'das hazar':10000,'das hazaar':10000,'दस हज़ार':10000,'दस हजार':10000
+};
+
+function extractVoiceAmount(text) {
+  const m = text.match(/\d+/);
+  if (m) return parseInt(m[0]);
+  const lower = text.toLowerCase();
+  for (const [word, val] of Object.entries(VOICE_NUM_WORDS)) {
+    if (lower.includes(word) || text.includes(word)) return val;
+  }
+  return null;
+}
+
+function matchClientsByVoice(spokenText) {
+  let cleaned = spokenText.toLowerCase();
+  [...VOICE_PAY_WORDS, ...VOICE_BAL_WORDS, 'ka','ki','ke','का','की','के','रुपये','रुपए','rupiye','rupaye','rupees','rs','₹'].forEach(w => {
+    cleaned = cleaned.split(w).join(' ');
+  });
+  cleaned = cleaned.replace(/\d+/g, ' ');
+  const norm = normalizeForMatch(cleaned);
+  const roman = normalizeForMatch(transliterateDevanagari(norm));
+  const words = [...new Set([...norm.split(' '), ...roman.split(' ')])].filter(w => w.length > 1);
+  if (!words.length) return [];
+
+  const scored = allClients.map(c => {
+    const cname = normalizeForMatch(c.name);
+    let score = 0;
+    words.forEach(w => { if (cname.includes(w)) score += w.length; });
+    return { client: c, score };
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+  return scored;
+}
+
+function handleVoiceCommand(text) {
+  const status = document.getElementById('voice-status');
+  const body = document.getElementById('voice-body');
+  status.innerHTML = `<div class="voice-transcript">"${text}"</div>`;
+
+  const lower = text.toLowerCase();
+  const isBalanceQuery = VOICE_BAL_WORDS.some(w => lower.includes(w) || text.includes(w));
+  const amount = isBalanceQuery ? null : extractVoiceAmount(text);
+  const matches = matchClientsByVoice(text);
+
+  if (!matches.length) {
+    body.innerHTML = `<div style="text-align:center;color:var(--muted);padding:10px 0">
+      😕 Client samajh nahi paya.<br>Naam clearly bolen, jaise: <b>"Ramesh Yadav 500 jama karo"</b>
+      <div class="voice-confirm-row"><button class="voice-btn-no" onclick="closeVoiceSheet()">बंद करें</button></div>
+    </div>`;
+    return;
+  }
+
+  if (matches.length > 1 && matches[0].score === matches[1].score) {
+    // disambiguation needed
+    let html = `<div style="font-size:13px;color:var(--muted);margin-bottom:8px">Konsa client? / Which client?</div>`;
+    matches.slice(0, 5).forEach(m => {
+      html += `<div class="voice-client-pick" onclick="voiceResolveClient('${m.client.id}', ${amount || 'null'}, ${isBalanceQuery})">
+        <span>${m.client.name}</span><span style="color:var(--muted);font-size:12px">₹${fmt(parseFloat(m.client.balance)||0)}</span>
+      </div>`;
+    });
+    html += `<div class="voice-confirm-row"><button class="voice-btn-no" onclick="closeVoiceSheet()">Cancel</button></div>`;
+    body.innerHTML = html;
+    return;
+  }
+
+  voiceResolveClient(matches[0].client.id, amount, isBalanceQuery);
+}
+
+function voiceResolveClient(clientId, amount, isBalanceQuery) {
+  const c = allClients.find(x => x.id === clientId);
+  const body = document.getElementById('voice-body');
+  if (!c) { closeVoiceSheet(); return; }
+
+  if (isBalanceQuery || !amount) {
+    const totalDue = (parseFloat(c.balance)||0) + (parseFloat(c.interest_amount)||0);
+    const paid = allPayments.filter(p => p.client_id === c.id && p.type === 'credit' && !(p.description||'').includes('DELETED'))
+      .reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+    const outstanding = Math.max(0, totalDue - paid);
+
+    body.innerHTML = `
+      <div style="text-align:center;padding:6px 0 4px">
+        <div style="font-size:16px;font-weight:800;color:var(--navy)">${c.name}</div>
+        <div style="font-size:13px;color:var(--muted);margin:6px 0">Loan Balance / Outstanding</div>
+        <div style="font-size:26px;font-weight:800;color:${outstanding>0?'var(--danger)':'var(--success)'}">₹${fmt(outstanding)}</div>
+      </div>
+      <div class="voice-confirm-row">
+        <button class="voice-btn-no" onclick="closeVoiceSheet()">बंद करें</button>
+      </div>`;
+    speak(`${c.name} ka outstanding ${outstanding} rupaye hai`);
+    return;
+  }
+
+  // Payment confirmation
+  voicePendingPayment = { clientId: c.id, amount };
+  body.innerHTML = `
+    <div style="text-align:center;padding:6px 0 4px">
+      <div style="font-size:16px;font-weight:800;color:var(--navy)">${c.name}</div>
+      <div style="font-size:13px;color:var(--muted);margin:6px 0">Payment Confirm karein</div>
+      <div style="font-size:28px;font-weight:800;color:var(--success)">₹${fmt(amount)}</div>
+    </div>
+    <div class="voice-confirm-row">
+      <button class="voice-btn-no" onclick="closeVoiceSheet()">❌ Cancel</button>
+      <button class="voice-btn-yes" onclick="confirmVoicePayment()">✅ Confirm / जमा करें</button>
+    </div>`;
+  speak(`${c.name} ko ${amount} rupaye, confirm karein`);
+}
+
+async function confirmVoicePayment() {
+  if (!voicePendingPayment) return;
+  const { clientId, amount } = voicePendingPayment;
+  const cl = allClients.find(c => c.id === clientId);
+  const body = document.getElementById('voice-body');
+  body.innerHTML = `<div style="text-align:center;color:var(--muted);padding:14px 0">Saving...</div>`;
+
+  try {
+    const today = new Date().toISOString().slice(0,10);
+    const { data, error } = await db.from('payments').insert({
+      client_id: clientId,
+      amount: parseFloat(amount),
+      type: 'credit',
+      description: 'Voice Entry / आवाज़ से दर्ज',
+      date: today,
+      created_by: currentUser?.id || null
+    }).select().single();
+    if (error) throw error;
+
+    allPayments.unshift(data);
+    showToast(`✅ ₹${fmt(amount)} — ${cl?.name||''}`, 'success');
+    speak(`${cl?.name||''} ka ${amount} rupaye jama ho gaya`);
+    body.innerHTML = `<div style="text-align:center;color:var(--success);font-weight:700;padding:14px 0">✅ ${cl?.name||''} — ₹${fmt(amount)} जमा हो गया!</div>`;
+    voicePendingPayment = null;
+    await loadAll();
+    setTimeout(closeVoiceSheet, 1500);
+  } catch (err) {
+    console.error('Voice payment error:', err);
+    body.innerHTML = `<div style="text-align:center;color:var(--danger);padding:14px 0">⚠️ Save failed: ${err.message||'Try again'}</div>
+      <div class="voice-confirm-row"><button class="voice-btn-no" onclick="closeVoiceSheet()">बंद करें</button></div>`;
+  }
 }
 
 
