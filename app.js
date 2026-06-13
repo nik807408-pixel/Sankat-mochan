@@ -1353,7 +1353,7 @@ function renderInvoicesPage(c) {
     <button onclick="moreTab=null;showPage('invoices')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--muted)">← वापस / Back</button>
   </div>
   <div id="more-content">
-    ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : moreTab==='monthly' ? renderMonthlyReportTab() : renderMeetingTab()}
+    ${moreTab==='emi' ? renderEMITab() : moreTab==='passbook' ? renderPassbookTab() : moreTab==='cashbook' ? renderCashBookTab() : moreTab==='collreg' ? renderCollectionRegTab() : moreTab==='clients' ? renderClientsTab() : moreTab==='monthly' ? renderMonthlyReportTab() : moreTab==='summary' ? renderClientSummaryTab() : renderMeetingTab()}
   </div>
   ` : `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:4px">
@@ -1401,6 +1401,13 @@ function renderInvoicesPage(c) {
     </div>
 
     ${currentProfile.role === 'admin' ? `
+    <div onclick="moreTab='summary';showPage('invoices')" style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(30,58,138,.3)">
+      <div style="font-size:32px;margin-bottom:8px">🗂️</div>
+      <div style="font-size:14px;font-weight:700">Client Summary</div>
+      <div style="font-size:10px;opacity:.7;margin-top:2px">Center/Day-wise Assign</div>
+    </div>` : ''}
+
+    ${currentProfile.role === 'admin' ? `
     <div onclick="showPage('team')" style="background:linear-gradient(135deg,#9d174d,#db2777);border-radius:16px;padding:20px;cursor:pointer;color:white;text-align:center;box-shadow:0 4px 12px rgba(157,23,77,.3)">
       <div style="font-size:32px;margin-bottom:8px">🏢</div>
       <div style="font-size:14px;font-weight:700">Team / टीम</div>
@@ -1417,7 +1424,7 @@ function switchMoreTab(tab, btn) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const c = document.getElementById('more-content');
-  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : tab==='clients' ? renderClientsTab() : tab==='monthly' ? renderMonthlyReportTab() : renderMeetingTab();
+  if (c) c.innerHTML = tab==='emi' ? renderEMITab() : tab==='passbook' ? renderPassbookTab() : tab==='cashbook' ? renderCashBookTab() : tab==='collreg' ? renderCollectionRegTab() : tab==='clients' ? renderClientsTab() : tab==='monthly' ? renderMonthlyReportTab() : tab==='summary' ? renderClientSummaryTab() : renderMeetingTab();
 }
 
 function renderClientsTab() {
@@ -1869,6 +1876,140 @@ async function submitRenewal(clientId) {
 
 // ── MONTHLY REPORT ────────────────────────
 let monthlyMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+// ═══════════════════════════════════════════════════════════════
+// CLIENT SUMMARY — day+center wise grouping, 1-click bulk assign
+// ═══════════════════════════════════════════════════════════════
+let summaryDayFilter = '';
+let summaryCenterFilter = '';
+
+function renderClientSummaryTab() {
+  if (currentProfile.role !== 'admin') {
+    return `<div style="text-align:center;color:var(--muted);padding:30px">Sirf admin ke liye / Admin only</div>`;
+  }
+
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const dayHindi = {Monday:'सोमवार',Tuesday:'मंगलवार',Wednesday:'बुधवार',Thursday:'गुरुवार',Friday:'शुक्रवार',Saturday:'शनिवार',Sunday:'रविवार'};
+  const centers = [...new Set(allClients.map(c => c.center_name).filter(Boolean))].sort();
+
+  let html = `
+  <div class="section-hdr no-print">
+    <div class="section-title">🗂️ Client Summary <span class="hindi">/ ग्राहक सारांश</span></div>
+  </div>
+  <div class="no-print" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <select id="sum-day" onchange="summaryDayFilter=this.value;refreshClientSummary()" style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px">
+      <option value="">सभी दिन / All Days</option>
+      ${days.map(d => `<option value="${d}" ${summaryDayFilter===d?'selected':''}>${dayHindi[d]} / ${d}</option>`).join('')}
+    </select>
+    <select id="sum-center" onchange="summaryCenterFilter=this.value;refreshClientSummary()" style="flex:1;min-width:120px;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px">
+      <option value="">सभी सेंटर / All Centers</option>
+      ${centers.map(c => `<option value="${c}" ${summaryCenterFilter===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+  </div>
+  <div id="summary-groups">${buildSummaryGroups()}</div>`;
+  return html;
+}
+
+function refreshClientSummary() {
+  const el = document.getElementById('summary-groups');
+  if (el) el.innerHTML = buildSummaryGroups();
+}
+
+function buildSummaryGroups() {
+  let filtered = allClients.filter(c =>
+    (!summaryDayFilter || c.meeting_day === summaryDayFilter) &&
+    (!summaryCenterFilter || c.center_name === summaryCenterFilter)
+  );
+
+  if (!filtered.length) {
+    return `<div style="text-align:center;color:var(--muted);padding:24px">Is filter mein koi client nahi</div>`;
+  }
+
+  // Group by center + meeting_day
+  const groups = {};
+  filtered.forEach(c => {
+    const center = c.center_name || 'बिना सेंटर / No Center';
+    const day = c.meeting_day || 'बिना दिन / No Day';
+    const key = center + ' ||| ' + day;
+    if (!groups[key]) groups[key] = { center, day, clients: [] };
+    groups[key].clients.push(c);
+  });
+
+  const empOptions = allEmployees
+    .filter(e => e.is_approved || e.role === 'admin')
+    .map(e => `<option value="${e.id}">${e.name || e.email}${e.role==='admin'?' (Admin)':''}</option>`).join('');
+
+  let html = '';
+  Object.entries(groups).forEach(([key, g], idx) => {
+    const gid = 'grp' + idx;
+    // current assignment summary
+    const assignCounts = {};
+    g.clients.forEach(c => {
+      const emp = allEmployees.find(e => e.id === c.assigned_to);
+      const nm = emp ? (emp.name || emp.email) : 'अनासाइन्ड';
+      assignCounts[nm] = (assignCounts[nm] || 0) + 1;
+    });
+    const assignSummary = Object.entries(assignCounts).map(([n,ct]) => `${n}: ${ct}`).join(' · ');
+
+    html += `
+    <div style="background:white;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-size:14px;font-weight:800;color:var(--navy)">📍 ${g.center}</div>
+          <div style="font-size:12px;color:var(--muted)">📅 ${g.day} · ${g.clients.length} clients</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">वर्तमान: ${assignSummary}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="${gid}-emp" style="flex:1;min-width:140px;border:1.5px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px">
+          <option value="">-- Employee chunें --</option>
+          ${empOptions}
+        </select>
+        <button onclick="assignGroupToEmployee('${gid}', ${JSON.stringify(g.clients.map(c=>c.id)).replace(/"/g,'&quot;')})"
+          style="background:var(--navy);color:white;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">
+          ✅ सभी असाइन करें
+        </button>
+      </div>
+      <details style="margin-top:10px">
+        <summary style="font-size:12px;color:var(--navy);cursor:pointer">👁️ Clients dekhein (${g.clients.length})</summary>
+        <div style="margin-top:8px">
+          ${g.clients.map(c => `<div style="font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)">${c.name} <span style="color:var(--muted)">— ₹${fmt(parseFloat(c.balance)||0)}</span></div>`).join('')}
+        </div>
+      </details>
+    </div>`;
+  });
+  return html;
+}
+
+async function assignGroupToEmployee(gid, clientIds) {
+  const sel = document.getElementById(gid + '-emp');
+  const empId = sel?.value;
+  if (!empId) { showToast('Pehle employee chunें', 'error'); return; }
+  const emp = allEmployees.find(e => e.id === empId);
+  const empName = emp ? (emp.name || emp.email) : 'employee';
+
+  if (!confirm(`${clientIds.length} clients ko "${empName}" ko assign karein?`)) return;
+
+  try {
+    const { error } = await db.from('clients')
+      .update({ assigned_to: empId })
+      .in('id', clientIds);
+    if (error) throw error;
+
+    // local update
+    clientIds.forEach(id => {
+      const c = allClients.find(x => x.id === id);
+      if (c) c.assigned_to = empId;
+    });
+    showToast(`✅ ${clientIds.length} clients → ${empName}`, 'success');
+    refreshClientSummary();
+    await loadAll();
+    refreshClientSummary();
+  } catch (err) {
+    console.error('Group assign error:', err);
+    showToast('Assign failed: ' + (err.message || ''), 'error');
+  }
+}
 
 function renderMonthlyReportTab() {
   return `
