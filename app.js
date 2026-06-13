@@ -986,13 +986,10 @@ async function saveClient() {
     balance: parseFloat(v('f-balance')) || 0,
     bank_name: v('f-bank'),
     notes: v('f-notes'),
-    loan_id: loanId,
     husband_wife_name: v('f-spouse'),
     marital_status: document.getElementById('f-marital')?.value || 'unmarried',
     address2: v('f-address2'),
     interest_amount: parseFloat(v('f-interest')) || 0,
-    lpf: parseFloat(v('f-lpf')) || 500,
-    lpc: parseFloat(v('f-lpc')) || 0,
     finance_company: v('f-bank'),
     kyc_approved: document.getElementById('f-kyc-approved')?.value === 'true',
     center_name: v('f-center-name'),
@@ -1011,6 +1008,13 @@ async function saveClient() {
     card_issue_date: v('f-card-date') || null,
   };
   if (custId) payload.customer_id = custId;
+  if (loanId) payload.loan_id = loanId;
+  // lpf/lpc: edit ke waqt sirf tab update karo jab field bhara ho (warna purana data mit jata tha)
+  const lpfVal = v('f-lpf'), lpcVal = v('f-lpc');
+  if (lpfVal !== '') payload.lpf = parseFloat(lpfVal) || 0;
+  else if (!editingClientId) payload.lpf = 500;
+  if (lpcVal !== '') payload.lpc = parseFloat(lpcVal) || 0;
+  else if (!editingClientId) payload.lpc = 0;
   if (photoUrl) payload.photo_url = photoUrl;
   if (aadhaarPhotoPath) payload.aadhaar_photo = aadhaarPhotoPath;
   if (panPhotoPath) payload.pan_photo = panPhotoPath;
@@ -2416,6 +2420,95 @@ function voiceNote(targetId) {
 
 
 // ═══════════════════════════════════════════════════════════════
+// HELP ASSISTANT — features overview + "kaise use kare" voice Q&A
+// ═══════════════════════════════════════════════════════════════
+const HELP_GUIDE = [
+  { keys:['dashboard','डैशबोर्ड','overview','summary'], icon:'📊', title:'Dashboard / डैशबोर्ड',
+    steps:'Login karte hi Dashboard khulta hai. Yahan total clients, total loan, total received, outstanding aur LPF ek nazar mein dikhta hai. Neeche charts mein top clients aur collection trend dikhta hai.',
+    spoken:'Dashboard par aapko poore business ka saransh dikhta hai — kul grahak, kul loan, wasooli aur baki raqam.' },
+  { keys:['client','grahak','ग्राहक','add client','naya client','kyc'], icon:'👥', title:'Client Add / ग्राहक जोड़ें',
+    steps:'1. Neeche "ग्राहक" tab par jao\n2. "+ जोड़ें" button dabao\n3. Naam, phone, address bharo\n4. Phone par OTP verify karo\n5. Aadhaar/PAN photo upload karo (50KB tak auto-compress hota hai)\n6. Loan amount, EMI, center details bharo\n7. Save dabao',
+    spoken:'Grahak jodne ke liye neeche grahak tab par jaakar plus button dabayen, naam phone bharein, OTP verify karein, Aadhaar photo upload karein aur save karein.' },
+  { keys:['payment','jama','भुगतान','जमा','emi','collect','wasool','installment','kisht'], icon:'💳', title:'Payment Entry / भुगतान दर्ज',
+    steps:'1. Client kholo (ग्राहक list se naam par tap)\n2. "Payment" ya "+" button dabao\n3. Amount aur date bharo, Save\n\nYa Meeting Day page se Quick Pay karo. Ya 🎤 mic button dabakar bolo: "Ramesh 500 jama karo"',
+    spoken:'Payment ke liye client khol kar payment button dabayen, raqam bharein aur save karein. Ya mic dabakar bol dein — naam aur raqam.' },
+  { keys:['passbook','पासबुक','statement'], icon:'📔', title:'Passbook / पासबुक',
+    steps:'1. More tab → Passbook\n2. Client choose karo\n3. 12-week passbook dikhega — har kisht ki entry\n4. Multi-cycle: 1st/2nd cycle tabs upar hain\n5. Print button se print karo',
+    spoken:'More tab mein passbook kholen, grahak chunen — barah hafte ki passbook dikhegi, print bhi kar sakte hain.' },
+  { keys:['emi tracker','due','overdue','बकाया'], icon:'⏰', title:'EMI Tracker',
+    steps:'More → EMI Tracker. Yahan sabki due/overdue kishtein dikhती hain — aaj kiski EMI hai, kaun late hai.',
+    spoken:'EMI tracker mein aaj ki aur overdue kishtein dikhti hain.' },
+  { keys:['cash book','cashbook','कैश बुक','रोकड़'], icon:'📒', title:'Cash Book / कैश बुक',
+    steps:'1. More → Cash Book\n2. Date choose karo\n3. Opening, collection, kharcha, bank deposit bharo\n4. Note denominations (500×kitne, 100×kitne)\n5. Save — data Supabase mein save hota hai\n6. Print button se A4 print',
+    spoken:'Cash book mein rozana ka hisaab bharein — opening, collection, kharcha. Save aur print dono hota hai.' },
+  { keys:['collection register','collreg','संग्रह','register'], icon:'📋', title:'Collection Register',
+    steps:'More → Collection Reg. Har center ka due/pre/OD collection, LPF/LPC bharo. Total auto-calculate hota hai. Save + landscape print.',
+    spoken:'Collection register mein center-wise wasooli bharein, total apne aap judta hai.' },
+  { keys:['monthly report','report','रिपोर्ट','मासिक'], icon:'📊', title:'Monthly Report / मासिक रिपोर्ट',
+    steps:'More → Monthly Report. Month choose karo — total collection, disbursement, naye clients, employee-wise wasooli table dikhega. Print bhi hota hai.',
+    spoken:'Monthly report mein poore mahine ka collection, naye loan aur employee-wise wasooli dikhti hai.' },
+  { keys:['npa','default'], icon:'⚠️', title:'NPA Tracking',
+    steps:'Dashboard/More mein NPA section — jo clients lambi time se payment nahi kar rahe woh yahan dikhte hain.',
+    spoken:'NPA mein woh grahak dikhte hain jinki kisht lambe samay se nahi aayi.' },
+  { keys:['team','approve','employee','कर्मचारी','टीम','staff'], icon:'🏢', title:'Team / टीम (Admin only)',
+    steps:'1. Team tab (sirf admin ko dikhta hai)\n2. Naya employee app mein signup karega\n3. Tumhe "Pending" mein dikhega → Approve dabao → apna admin password daalo\n4. Employee ko hatana ho: 🚫 Deactivate dabao — uska access band, clients tumhe transfer',
+    spoken:'Team tab mein naye karmchari approve karein ya purane deactivate karein. Approve ke liye apna admin password dalna hota hai.' },
+  { keys:['loan card','print card','कार्ड'], icon:'🖨️', title:'Loan Card Print',
+    steps:'Client detail kholo → Loan Card Print button → SATIN-style card print hota hai client ko dene ke liye.',
+    spoken:'Client ke andar loan card print ka button hai — chhapkar grahak ko de sakte hain.' },
+  { keys:['voice','mic','awaaz','आवाज़','बोल'], icon:'🎤', title:'Voice Assistant / आवाज़ सहायक',
+    steps:'Neeche 🎤 button dabao aur bolo:\n• "Ramesh 500 jama karo" → payment (confirm ke baad save)\n• "Sunita ka balance batao" → outstanding sunayi dega\n\n❓ button se yeh help khulta hai.',
+    spoken:'Mic dabakar naam aur raqam bolen, confirm karne par payment save ho jata hai. Balance bhi puchh sakte hain.' },
+];
+
+function openHelpAssistant() {
+  const overlay = document.getElementById('voice-overlay');
+  const status = document.getElementById('voice-status');
+  overlay.classList.add('show');
+  status.innerHTML = `<b style="color:var(--navy)">❓ App Guide / ऐप गाइड</b>`;
+  renderHelpMenu();
+  speak('Is app mein yeh features hain. Kisi par tap karein, ya mic dabakar puchein — jaise, passbook kaise use karein.');
+}
+
+function renderHelpMenu() {
+  const body = document.getElementById('voice-body');
+  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Feature par tap karo, ya 🎤 dabakar pucho: <i>"passbook kaise use kare?"</i></div>`;
+  HELP_GUIDE.forEach((h, i) => {
+    html += `<div class="voice-client-pick" onclick="showHelpTopic(${i})"><span>${h.icon} ${h.title}</span><span style="color:var(--muted)">›</span></div>`;
+  });
+  html += `<div class="voice-confirm-row">
+    <button class="voice-btn-no" onclick="closeVoiceSheet()">बंद करें</button>
+    <button class="voice-btn-yes" style="background:var(--navy)" onclick="toggleVoiceAssistant()">🎤 पूछें</button>
+  </div>`;
+  body.innerHTML = html;
+}
+
+function showHelpTopic(i) {
+  const h = HELP_GUIDE[i];
+  const body = document.getElementById('voice-body');
+  body.innerHTML = `
+    <div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:8px">${h.icon} ${h.title}</div>
+    <div style="font-size:13.5px;line-height:1.7;color:var(--text);white-space:pre-line;background:var(--bg);border-radius:10px;padding:12px">${h.steps}</div>
+    <div class="voice-confirm-row">
+      <button class="voice-btn-no" onclick="renderHelpMenu()">‹ वापस</button>
+      <button class="voice-btn-yes" style="background:var(--navy)" onclick="speak(HELP_GUIDE[${i}].spoken)">🔊 सुनें</button>
+    </div>`;
+  window.speechSynthesis?.cancel();
+  speak(h.spoken);
+}
+
+function matchHelpTopic(text) {
+  const lower = text.toLowerCase();
+  let best = -1, bestScore = 0;
+  HELP_GUIDE.forEach((h, i) => {
+    let score = 0;
+    h.keys.forEach(k => { if (lower.includes(k) || text.includes(k)) score += k.length; });
+    if (score > bestScore) { bestScore = score; best = i; }
+  });
+  return best;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // VOICE ASSISTANT — payment entry & balance lookup, with confirmation
 // ═══════════════════════════════════════════════════════════════
 let voiceRecognition = null;
@@ -2549,6 +2642,17 @@ function handleVoiceCommand(text) {
   status.innerHTML = `<div class="voice-transcript">"${text}"</div>`;
 
   const lower = text.toLowerCase();
+
+  // Help mode: "passbook kaise use kare", "madad", "features batao"
+  const HELP_WORDS = ['kaise','कैसे','help','madad','मदद','sikha','सिखा','guide','गाइड','feature','फीचर','use kare','इस्तेमाल'];
+  if (HELP_WORDS.some(w => lower.includes(w) || text.includes(w))) {
+    const topicIdx = matchHelpTopic(text);
+    if (topicIdx >= 0) { showHelpTopic(topicIdx); return; }
+    renderHelpMenu();
+    speak('Yeh saare features hain. Kisi par tap karein ya feature ka naam lekar puchein.');
+    return;
+  }
+
   const isBalanceQuery = VOICE_BAL_WORDS.some(w => lower.includes(w) || text.includes(w));
   const amount = isBalanceQuery ? null : extractVoiceAmount(text);
   const matches = matchClientsByVoice(text);
@@ -4767,4 +4871,127 @@ async function deletePayment(paymentId) {
     console.error('Delete error:', err);
     showToast('Delete failed! Try again', 'error');
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELP VOICE GUIDE — ek click me saare features, bolke sawal pucho
+// ═══════════════════════════════════════════════════════════════
+const HELP_TOPICS = [
+  { keys:['client','grahak','ग्राहक','add','jodna','जोड़','naya','नया','kyc'],
+    title:'👤 Client Add / ग्राहक जोड़ना',
+    steps:['नीचे "ग्राहक" tab दबाएं','"+ जोड़ें" button दबाएं','नाम, फोन भरें — फोन पर OTP verify करें','Aadhaar/PAN photo upload करें (बाद में भी कर सकते हैं)','Assign To में employee चुनें','Save दबाएं'],
+    speech:'Client jodne ke liye neeche grahak tab dabayen, phir plus jodein button. Naam aur phone bharen, OTP verify karen, aur Save daba den.' },
+  { keys:['payment','jama','जमा','wasool','वसूल','kisht','किस्त','emi','paisa','पैसा','entry'],
+    title:'💰 Payment Entry / किस्त जमा',
+    steps:['ग्राहक tab में client खोलें','"Payment" / जमा button दबाएं','Amount डालें और Save करें','या 🎤 mic button दबाकर बोलें: "Ramesh 500 jama karo"'],
+    speech:'Payment ke liye client kholen aur jama button dabayen. Ya neeche mic button dabakar bolen, jaise Ramesh paanch sau jama karo. Confirm dabate hi entry ho jayegi.' },
+  { keys:['mic','voice','awaaz','आवाज़','bolkar','बोल'],
+    title:'🎤 Voice Assistant / आवाज़ से काम',
+    steps:['नीचे-right 🎤 button दबाएं','बोलें: "[नाम] 500 jama karo" → payment','या बोलें: "[नाम] ka balance batao" → बकाया सुनें','Screen पर Confirm दबाने पर ही save होगा'],
+    speech:'Mic button dabakar client ka naam aur amount bolen, jaise Sunita paanch sau jama karo. Balance puchne ke liye bolen, Sunita ka balance batao.' },
+  { keys:['passbook','पासबुक','statement'],
+    title:'📖 Passbook',
+    steps:['More tab → Passbook चुनें','Client select करें','12-हफ्ते की entries दिखेंगी, cycle tabs (1st/2nd) से पुराने लोन देखें','Print button से print करें'],
+    speech:'More tab me passbook kholen, client chunen, aur poori kisht history dekhen ya print karen.' },
+  { keys:['cash','book','कैश','कैशबुक','रोकड़'],
+    title:'📒 Cash Book / कैश बुक',
+    steps:['More tab → Cash Book','दिन की opening, collection, खर्च भरें','नोट गिनती (denomination) भी डाल सकते हैं','Save दबाएं — data save रहेगा','Print से register print करें'],
+    speech:'More tab me cash book kholen, din ka hisaab bharen aur save karen. Print bhi kar sakte hain.' },
+  { keys:['collection','register','संग्रह','रजिस्टर'],
+    title:'📋 Collection Register',
+    steps:['More tab → Collection Reg','Center-wise collection भरें','Save करें, Print करें'],
+    speech:'More tab me collection register kholen, center ka collection bharen aur save karen.' },
+  { keys:['monthly','report','मासिक','रिपोर्ट','month'],
+    title:'📊 Monthly Report / मासिक रिपोर्ट',
+    steps:['More tab → Monthly Report','Month चुनें','कुल वसूली, नए लोन, employee-wise collection दिखेगा','Print भी कर सकते हैं'],
+    speech:'More tab me monthly report kholen. Mahina chunte hi poori wasooli aur employee wise hisaab dikh jayega.' },
+  { keys:['team','टीम','employee','कर्मचारी','approve','स्वीकृति','deactivate'],
+    title:'🏢 Team / कर्मचारी (Admin only)',
+    steps:['नीचे टीम tab (या More → Team)','नया employee signup करेगा → यहां Pending दिखेगा','Approve दबाएं, अपना admin password डालें','निकालने के लिए Deactivate दबाएं — उसके clients आपको transfer हो जाएंगे'],
+    speech:'Team tab me naye employee ko approve karen apna password daal kar. Deactivate dabane par uska access band ho jata hai.' },
+  { keys:['npa','overdue','बकाया','default'],
+    title:'⚠️ NPA / Overdue',
+    steps:['Dashboard पर NPA section देखें','जो clients किस्त नहीं भर रहे, वो list होंगे'],
+    speech:'Dashboard par NPA section me un clients ki list hai jinki kisht ruki hui hai.' },
+  { keys:['loan','card','कार्ड','print'],
+    title:'🖨️ Loan Card Print',
+    steps:['Client खोलें → Loan Card button','SATIN-style card print होगा'],
+    speech:'Client khol kar loan card button dabayen, card print ho jayega.' },
+  { keys:['search','khoj','खोज','dhundo','ढूंढ'],
+    title:'🔍 Client Search',
+    steps:['ग्राहक tab में ऊपर search box','नाम/फोन type करें या 🎤 से बोलें'],
+    speech:'Grahak tab me upar search box me naam type karen ya mic se bolen.' },
+];
+
+function openHelpAssistant() {
+  const overlay = document.getElementById('voice-overlay');
+  const status = document.getElementById('voice-status');
+  const body = document.getElementById('voice-body');
+  overlay.classList.add('show');
+  status.innerHTML = `<b style="color:var(--navy)">❓ App Guide / सहायता</b>`;
+
+  let html = `<div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:10px">
+    Feature par tap karein, ya 🎤 dabakar puchein — jaise <b>"passbook kaise kholen"</b></div>
+    <div class="voice-confirm-row" style="margin:0 0 12px">
+      <button class="voice-btn-yes" style="background:linear-gradient(145deg,#d97706,#92600a)" onclick="helpListen()">🎤 बोलकर पूछें</button>
+      <button class="voice-btn-no" onclick="speakAllFeatures()">🔊 सभी features सुनें</button>
+    </div>`;
+  HELP_TOPICS.forEach((t, i) => {
+    html += `<div class="voice-client-pick" onclick="showHelpTopic(${i})"><span>${t.title}</span><span style="color:var(--muted)">›</span></div>`;
+  });
+  html += `<div class="voice-confirm-row"><button class="voice-btn-no" onclick="window.speechSynthesis.cancel();closeVoiceSheet()">बंद करें</button></div>`;
+  body.innerHTML = html;
+}
+
+function speakAllFeatures() {
+  window.speechSynthesis.cancel();
+  const names = HELP_TOPICS.map(t => t.title.replace(/^[^\s]+\s/, '').split('/')[0].trim()).join(', ');
+  speak(`Is app me ye features hain: ${names}. Kisi bhi feature par tap karke ya mic dabakar pooch sakte hain.`);
+}
+
+function showHelpTopic(i) {
+  const t = HELP_TOPICS[i];
+  const body = document.getElementById('voice-body');
+  let html = `<div style="font-size:15px;font-weight:800;color:var(--navy);margin-bottom:10px">${t.title}</div><ol style="padding-left:20px;margin:0 0 10px">`;
+  t.steps.forEach(s => { html += `<li style="font-size:13px;margin-bottom:8px;color:var(--text)">${s}</li>`; });
+  html += `</ol>
+    <div class="voice-confirm-row">
+      <button class="voice-btn-no" onclick="window.speechSynthesis.cancel();openHelpAssistant()">‹ वापस</button>
+      <button class="voice-btn-yes" style="background:linear-gradient(145deg,#d97706,#92600a)" onclick="window.speechSynthesis.cancel();speak(HELP_TOPICS[${i}].speech)">🔊 सुनें</button>
+    </div>`;
+  body.innerHTML = html;
+  window.speechSynthesis.cancel();
+  speak(t.speech);
+}
+
+function helpListen() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { showToast('Browser mic support nahi hai!', 'error'); return; }
+  window.speechSynthesis.cancel();
+  const status = document.getElementById('voice-status');
+  status.innerHTML = `<span style="color:var(--danger)">🔴 सुन रहे हैं... पूछिए</span>`;
+
+  const rec = new SpeechRecognition();
+  rec.lang = 'hi-IN';
+  rec.interimResults = false;
+  rec.onresult = (e) => {
+    const text = e.results[0][0].transcript.trim();
+    status.innerHTML = `<div class="voice-transcript">"${text}"</div>`;
+    const lower = text.toLowerCase();
+    const roman = transliterateDevanagari(lower);
+    let best = -1, bestScore = 0;
+    HELP_TOPICS.forEach((t, i) => {
+      let score = 0;
+      t.keys.forEach(k => { if (lower.includes(k) || roman.includes(k) || text.includes(k)) score += k.length; });
+      if (score > bestScore) { bestScore = score; best = i; }
+    });
+    if (best >= 0) showHelpTopic(best);
+    else {
+      speak('Maaf kijiye, samajh nahi aaya. Feature ka naam bolen, jaise passbook ya payment.');
+      document.getElementById('voice-body').insertAdjacentHTML('afterbegin',
+        `<div style="text-align:center;color:var(--danger);font-size:12px;margin-bottom:8px">😕 Samajh nahi aaya — feature ka naam bolen (jaise "passbook")</div>`);
+    }
+  };
+  rec.onerror = () => { status.innerHTML = `<span style="color:var(--danger)">Mic error — dobara try karein</span>`; };
+  rec.start();
 }
