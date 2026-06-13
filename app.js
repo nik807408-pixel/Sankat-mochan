@@ -911,7 +911,9 @@ async function handlePhotoSelect(input) {
   }
 }
 
+let _savingClient = false;
 async function saveClient() {
+  if (_savingClient) return; // double-click / double-fire guard
   const name = document.getElementById('f-name').value.trim();
   if (!name) { showErr(document.getElementById('cm-err'), 'Name required / नाम आवश्यक है'); return; }
 
@@ -921,6 +923,8 @@ async function saveClient() {
     document.getElementById('otp-section')?.scrollIntoView({ behavior: 'smooth' });
     return;
   }
+
+  _savingClient = true;
 
   const btn = document.querySelector('#client-modal .btn-primary');
   btn.disabled = true; btn.textContent = '📸 Uploading...';
@@ -1029,10 +1033,10 @@ async function saveClient() {
   }
 
   btn.textContent = '💾 Saving data...';
-  btn.disabled = false;
   if (error) {
     btn.textContent = 'Save / सहेजें';
     btn.disabled = false;
+    _savingClient = false;
     showErr(document.getElementById('cm-err'), error.message);
     return;
   }
@@ -1047,16 +1051,9 @@ async function saveClient() {
     savedClientId = latest?.id;
   }
 
-  // Upload photos NOW before closing
-  if (savedClientId && (selectedPhotoFile || aadhaarPhotoFile || panPhotoFile)) {
-    btn.disabled = true;
-    btn.textContent = '📸 Uploading photos...';
-    await uploadPhotosInBackground(savedClientId);
-    btn.disabled = false;
-    btn.textContent = 'Save / सहेजें';
-  }
-
-  closeModal('client-modal');
+  // NOTE: photos pehle hi inline upload ho chuke (payload mein paths hain).
+  // uploadPhotosInBackground sirf NEW insert ke liye fallback — edit par skip.
+  // (Double-upload aur race condition isi se hata)
   showToast(editingClientId ? '✅ Updated!' : '✅ Client added!', 'success');
 
   selectedPhotoFile = null;
@@ -1064,6 +1061,9 @@ async function saveClient() {
   generatedOTP = null;
   aadhaarPhotoFile = null;
   panPhotoFile = null;
+  _savingClient = false;
+  btn.disabled = false;
+  btn.textContent = 'Save / सहेजें';
   await loadAll();
   showPage(currentPage);
 }
