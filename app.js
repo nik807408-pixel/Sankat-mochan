@@ -227,15 +227,65 @@ async function loadInvoices() {
 // ── PAGES ─────────────────────────────────
 function showPage(page) {
   currentPage = page;
-  ['dashboard','clients','invoices','team'].forEach(p => {
+  ['dashboard','clients','payments','invoices','team'].forEach(p => {
     const btn = document.getElementById('nav-' + p);
     if (btn) btn.classList.toggle('active', p === page);
   });
   const c = document.getElementById('main-content');
   if (page === 'dashboard') renderDashboard(c);
   else if (page === 'clients') renderClientsPage(c);
+  else if (page === 'payments') renderPaymentsPage(c);
   else if (page === 'invoices') renderInvoicesPage(c);
   else if (page === 'team') renderTeamPage(c);
+}
+
+// ── PAYMENTS PAGE — client search + quick payment ─────────
+let paySearchTerm = '';
+function renderPaymentsPage(c) {
+  c.innerHTML = `
+    <div style="background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:16px;padding:16px;margin-bottom:16px;color:white">
+      <div style="font-size:20px;font-weight:800">💰 भुगतान / Payment</div>
+      <div style="font-size:11px;opacity:.8;margin-top:2px">Client chuno aur payment add karo</div>
+    </div>
+    <input id="pay-search" oninput="paySearchTerm=this.value;renderPayList()" placeholder="🔍 Client naam ya phone se khojें..."
+      style="width:100%;border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:14px"/>
+    <div id="pay-list"></div>`;
+  renderPayList();
+}
+
+function renderPayList() {
+  const el = document.getElementById('pay-list');
+  if (!el) return;
+  const term = paySearchTerm.toLowerCase().trim();
+  let list = allClients.filter(c => (c.status !== 'closed'));
+  if (term) {
+    list = list.filter(c =>
+      (c.name||'').toLowerCase().includes(term) ||
+      (c.phone||'').includes(term) ||
+      (c.center_name||'').toLowerCase().includes(term)
+    );
+  }
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px">Koi client nahi mila</div>';
+    return;
+  }
+  el.innerHTML = list.slice(0, 50).map(c => {
+    const bal = parseFloat(c.balance)||0;
+    const weeks = parseInt(c.loan_weeks)||12;
+    const emi = bal > 0 ? Math.round(((parseFloat(c.balance)||0)+(parseFloat(c.interest_amount)||0))/weeks) : 0;
+    return `
+    <div style="background:white;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(15,37,71,.07);display:flex;justify-content:space-between;align-items:center">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:var(--navy);font-size:14px">${c.name||'—'}</div>
+        <div style="font-size:11px;color:var(--muted)">${c.center_name||''} ${c.phone? '· '+c.phone : ''}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">बाकी: ₹${fmt(bal)} ${emi? '· EMI ₹'+fmt(emi):''}</div>
+      </div>
+      <button onclick="activeClientId='${c.id}';openPayModal()"
+        style="background:var(--navy);color:white;border:none;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;margin-left:10px">
+        + भुगतान
+      </button>
+    </div>`;
+  }).join('');
 }
 
 // ── DASHBOARD ─────────────────────────────
@@ -1229,7 +1279,6 @@ async function openDetail(id) {
             title="Delete this payment">🗑️ Delete</button>` : ''}
         </div>`;
       }).join('') : '<div style="color:var(--muted);font-size:13px;text-align:center;padding:10px">No payments yet</div>'}
-      <button class="pay-add-btn" onclick="openPayModal()">+ Add Payment / भुगतान जोड़ें</button>
     </div>
 
     <div class="detail-section">
@@ -1335,7 +1384,11 @@ async function savePayment() {
     }
   }
 
-  openDetail(activeClientId);
+  if (currentPage === 'payments') {
+    renderPayList();
+  } else {
+    openDetail(activeClientId);
+  }
 }
 
 // ── MORE PAGE ────────────────────────────
