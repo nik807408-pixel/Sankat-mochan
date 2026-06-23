@@ -137,13 +137,13 @@ function computeLoan(){
   const credits=(d.payments||[]).filter(p=>p.type==='credit').sort((a,b)=>new Date(a.date)-new Date(b.date));
   const paidWeeks=emi>0?Math.round(paid/emi):0;
   let start=d.first_emi_date?new Date(d.first_emi_date):(d.loan_date?new Date(d.loan_date):(credits[0]?new Date(credits[0].date):new Date()));
-  let schedule=[],remInterest=interest;
+  // FLAT split — har week barabar principal aur interest (admin app jaisa)
+  const prinPerWeek=weeks>0?Math.round(principal/weeks):0;
+  const intPerWeek=weeks>0?Math.round(interest/weeks):0;
+  let schedule=[];
   for(let i=0;i<weeks;i++){
     const dt=new Date(start);dt.setDate(dt.getDate()+i*7);
-    const intPart=Math.round(remInterest/(weeks-i));
-    const prinPart=emi-intPart;
-    remInterest-=intPart;
-    schedule.push({seq:i+1,date:dt,principal:prinPart,interest:intPart,total:emi});
+    schedule.push({seq:i+1,date:dt,principal:prinPerWeek,interest:intPerWeek,total:prinPerWeek+intPerWeek});
   }
   let nextDue=null,isOverdue=false,overdueAmt=0;
   if(balance>0){
@@ -202,8 +202,8 @@ function render(p){
       </div>`;
   }else if(p==='demand'){
     document.getElementById('pg-demand').innerHTML=`
-      <div class="tbl-head"><div>EMI Seq</div><div>Date</div><div>Principal</div><div>Interest</div><div>Total</div></div>
-      ${L.schedule.map(s=>`<div class="tbl-row"><div>${s.seq}</div><div>${dmy(s.date)}</div><div>${fmt(s.principal)}</div><div>${fmt(s.interest)}</div><div>${fmt(s.total)}</div></div>`).join('')}`;
+      <div class="tbl-head"><div>Seq</div><div>Date</div><div>Principal</div><div>Interest</div><div>Total</div><div>Received</div></div>
+      ${L.schedule.map((s,i)=>`<div class="tbl-row"><div>${s.seq}</div><div style="font-size:11px">${dmy(s.date)}</div><div>${fmt(s.principal)}</div><div>${fmt(s.interest)}</div><div>${fmt(s.total)}</div><div style="color:${i<L.paidWeeks?'var(--success)':'var(--muted)'};font-weight:700">${i<L.paidWeeks?'✓ '+fmt(s.total):'-'}</div></div>`).join('')}`;
   }else if(p==='history'){
     const h=L.runHistory;
     document.getElementById('pg-history').innerHTML=`
