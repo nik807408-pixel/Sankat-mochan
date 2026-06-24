@@ -97,6 +97,7 @@
   <div class="page" id="pg-detail"></div>
   <div class="page" id="pg-demand"></div>
   <div class="page" id="pg-history"></div>
+  <div class="page" id="pg-pay"></div>
   <div class="page" id="pg-profile"></div>
   <div class="page" id="pg-more"></div>
   <div class="bnav">
@@ -113,6 +114,11 @@ const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const fmt=n=>(parseFloat(n)||0).toLocaleString('en-IN',{maximumFractionDigits:0});
 const fmt2=n=>(parseFloat(n)||0).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1});
 let DATA=null,LOAN=null,pageHistory=['loan'];
+
+// ── UPI PAYMENT CONFIG — yahan badal sakte ho (future mein company UPI) ──
+const UPI_ID   = '9919868090-4@nyes';
+const UPI_NAME = 'ARUN KUMAR YADAV';
+const UPI_NOTE = 'Sankat Mochan Loan EMI';
 async function doLogin(saved){
   const custNum = saved? saved.cust : document.getElementById('in-cust').value.trim();
   const loanNum = saved? saved.loan : document.getElementById('in-loan').value.trim();
@@ -195,9 +201,9 @@ function showPage(p,isBack){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.getElementById('pg-'+p).classList.add('active');
   ['loan','profile','more'].forEach(n=>{const b=document.getElementById('nav-'+n);if(b)b.classList.toggle('active',n===p);});
-  const titles={loan:'Loan',detail:'Loan Details',demand:'Demand Details',history:'Payment History',profile:'Profile',more:'More'};
+  const titles={loan:'Loan',detail:'Loan Details',demand:'Demand Details',history:'Payment History',pay:'Pay / भुगतान',profile:'Profile',more:'More'};
   document.getElementById('pageTitle').textContent=titles[p]||'';
-  document.getElementById('backBtn').style.display=(['detail','demand','history'].includes(p))?'block':'none';
+  document.getElementById('backBtn').style.display=(['detail','demand','history','pay'].includes(p))?'block':'none';
   render(p);window.scrollTo(0,0);
 }
 function goBack(){if(pageHistory.length>1){pageHistory.pop();showPage(pageHistory[pageHistory.length-1],true);}}
@@ -209,7 +215,10 @@ function render(p){
         <div class="lc-top"><span class="lc-type">${d.loan_cycle||'Loan'}</span><span class="lc-id">${d.loan_id||''}</span></div>
         <div class="lc-body">
           <div class="lc-amt"><div class="lbl">Outstanding Amount</div><div class="val">₹ ${fmt2(L.balance)}</div></div>
-          <div class="lc-btns"><button class="btn-maroon" onclick="showPage('detail')">Details</button></div>
+          <div class="lc-btns">
+            <button class="btn-maroon" onclick="showPage('detail')">Details</button>
+            ${L.balance>0?`<button class="btn-maroon" style="background:var(--success)" onclick="showPage('pay')">💰 Pay Now</button>`:''}
+          </div>
         </div>
       </div>
       <div style="text-align:center;color:var(--muted);font-size:12px;margin-top:8px">नमस्ते ${d.name||''} 🙏<br>अपने लोन की पूरी जानकारी के लिए Details दबाएं</div>`;
@@ -264,6 +273,8 @@ function render(p){
         <div class="prow"><span class="pk">Center / केंद्र</span><span class="pv">${d.center_name||'-'}</span></div>
         <div class="prow"><span class="pk">Meeting Day / मीटिंग दिन</span><span class="pv">${d.meeting_day||d.finance_company||d.bank_name||'-'}</span></div>
       </div>`;
+  }else if(p==='pay'){
+    renderPayPage();
   }else if(p==='more'){
     document.getElementById('pg-more').innerHTML=`
       <div class="menu-item" onclick="alert('Sankat Mochan Finance — आपकी विश्वसनीय माइक्रोफाइनेंस सेवा।')">About Us <span>→</span></div>
@@ -272,6 +283,86 @@ function render(p){
       <div class="ver">Customer Passbook v3</div>`;
   }
 }
+// ── PAY PAGE (4 options + QR + UPI) ──
+let selectedPayAmt=0;
+function renderPayPage(){
+  const L=LOAN;
+  const emi=L.emi;
+  const overdue=L.overdueAmt;
+  const regularOverdue=emi+overdue;
+  const preclosure=Math.round(L.balance);
+  selectedPayAmt=emi; // default
+  const opt=(id,label,amt,sub)=>`
+    <label style="display:flex;align-items:center;justify-content:space-between;background:white;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer">
+      <span style="display:flex;align-items:center;gap:12px">
+        <input type="radio" name="paymode" value="${amt}" ${id==='regular'?'checked':''} onchange="onPaySelect(this,'${id}')" style="width:18px;height:18px;accent-color:var(--maroon)"/>
+        <span><span style="font-weight:700;color:var(--navy);font-size:14px">${label}</span>${sub?`<br><span style="font-size:11px;color:var(--muted)">${sub}</span>`:''}</span>
+      </span>
+      <span style="font-weight:800;color:var(--maroon);font-size:15px">₹${fmt(amt)}</span>
+    </label>`;
+  document.getElementById('pg-pay').innerHTML=`
+    <div class="sec-box">Collection Mode / भुगतान चुनें</div>
+    ${opt('regular','Regular / नियमित (1 किस्त)',emi,'एक साप्ताहिक EMI')}
+    ${overdue>0?opt('regplus','Regular + Overdue',regularOverdue,'EMI + बकाया किस्त'):''}
+    <label style="display:flex;align-items:center;justify-content:space-between;background:white;border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer">
+      <span style="display:flex;align-items:center;gap:12px">
+        <input type="radio" name="paymode" onchange="onPaySelect(this,'partial')" style="width:18px;height:18px;accent-color:var(--maroon)"/>
+        <span><span style="font-weight:700;color:var(--navy);font-size:14px">Partial / आंशिक</span><br><span style="font-size:11px;color:var(--muted)">अपनी राशि डालें</span></span>
+      </span>
+      <input id="partial-amt" type="number" placeholder="₹" oninput="onPartial(this)" style="width:90px;border:1.5px solid var(--border);border-radius:8px;padding:8px;font-size:14px;text-align:right"/>
+    </label>
+    ${opt('preclosure','Preclosure / पूर्ण भुगतान',preclosure,'पूरा लोन बंद करें')}
+
+    <div style="background:white;border-radius:12px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(15,37,71,.07);text-align:center">
+      <div style="font-size:13px;color:var(--muted)">भुगतान राशि / Payable Amount</div>
+      <div id="pay-amt-display" style="font-size:28px;font-weight:800;color:var(--maroon);margin-top:4px">₹${fmt(emi)}</div>
+    </div>
+
+    <button class="btn-maroon" style="width:100%;background:var(--success);padding:16px;font-size:16px" onclick="openUpiPay()">💰 Pay Now / अभी भुगतान करें</button>
+    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px">UPI से सुरक्षित भुगतान · GPay · PhonePe · Paytm</div>`;
+}
+function onPaySelect(el,mode){
+  if(mode==='partial'){ const pa=document.getElementById('partial-amt'); selectedPayAmt=parseFloat(pa.value)||0; }
+  else { selectedPayAmt=parseFloat(el.value)||0; }
+  document.getElementById('pay-amt-display').textContent='₹'+fmt(selectedPayAmt);
+}
+function onPartial(el){
+  const r=el.closest('label').querySelector('input[type=radio]'); if(r)r.checked=true;
+  selectedPayAmt=parseFloat(el.value)||0;
+  document.getElementById('pay-amt-display').textContent='₹'+fmt(selectedPayAmt);
+}
+function buildUpiUrl(amt){
+  const note=encodeURIComponent(UPI_NOTE+' - '+(DATA.name||''));
+  return `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(UPI_NAME)}&am=${amt}&cu=INR&tn=${note}`;
+}
+function openUpiPay(){
+  const amt=selectedPayAmt;
+  if(!amt||amt<=0){alert('कृपया राशि चुनें');return;}
+  const upiUrl=buildUpiUrl(amt);
+  const qrImg='https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(upiUrl);
+  // QR + UPI ID modal
+  const m=document.createElement('div');
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px';
+  m.innerHTML=`
+    <div style="background:white;border-radius:18px;padding:22px;max-width:340px;width:100%;text-align:center">
+      <div style="font-size:17px;font-weight:800;color:var(--navy)">भुगतान करें ₹${fmt(amt)}</div>
+      <div style="font-size:12px;color:var(--muted);margin:4px 0 14px">QR स्कैन करें या नीचे बटन दबाएं</div>
+      <img src="${qrImg}" alt="QR" style="width:220px;height:220px;border:1px solid var(--border);border-radius:12px"/>
+      <div style="background:#f1f5f9;border-radius:10px;padding:10px;margin:14px 0;font-size:13px">
+        <div style="color:var(--muted);font-size:11px">UPI ID</div>
+        <div style="font-weight:700;color:var(--navy)" id="upi-copy">${UPI_ID}</div>
+        <div style="color:var(--muted);font-size:11px;margin-top:4px">${UPI_NAME}</div>
+      </div>
+      <a href="${upiUrl}" style="display:block;background:var(--success);color:white;border-radius:10px;padding:14px;font-weight:700;text-decoration:none;font-size:15px">📱 UPI App में खोलें</a>
+      <button onclick="copyUpi()" style="width:100%;background:#eef2f7;border:none;border-radius:10px;padding:11px;margin-top:8px;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer">📋 UPI ID कॉपी करें</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="width:100%;background:none;border:none;padding:12px;margin-top:4px;font-size:13px;color:var(--muted);cursor:pointer">बंद करें</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">भुगतान के बाद अपने एजेंट को सूचित करें ताकि रसीद मिल सके।</div>
+    </div>`;
+  m.onclick=e=>{if(e.target===m)m.remove();};
+  document.body.appendChild(m);
+}
+function copyUpi(){ navigator.clipboard?.writeText(UPI_ID).then(()=>alert('UPI ID कॉपी हो गई: '+UPI_ID)).catch(()=>alert(UPI_ID)); }
+
 document.getElementById('in-loan').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
 </script>
 </body>
