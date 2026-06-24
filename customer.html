@@ -254,7 +254,9 @@ function render(p){
   }else if(p==='profile'){
     const mask=(s,keep=4)=>s?'*'.repeat(Math.max(0,(''+s).length-keep))+(''+s).slice(-keep):'-';
     document.getElementById('pg-profile').innerHTML=`
-      <div class="pcard"><div class="ptop"><div class="pname">${d.name||'-'}</div></div>
+      <div class="pcard"><div class="ptop">
+        <div id="prof-photo" style="width:90px;height:90px;border-radius:50%;background:#e2e8f0;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:34px;color:#94a3b8;overflow:hidden">👤</div>
+        <div class="pname">${d.name||'-'}</div></div>
         <div class="prow"><span class="pk">Name</span><span class="pv">${d.name||'-'}</span></div>
         <div class="prow"><span class="pk">DOB</span><span class="pv">${d.dob?dmy(d.dob):'-'}</span></div>
         <div class="prow"><span class="pk">Customer Id</span><span class="pv">${d.customer_id||'-'}</span></div>
@@ -273,6 +275,7 @@ function render(p){
         <div class="prow"><span class="pk">Center / केंद्र</span><span class="pv">${d.center_name||'-'}</span></div>
         <div class="prow"><span class="pk">Meeting Day / मीटिंग दिन</span><span class="pv">${d.meeting_day||d.finance_company||d.bank_name||'-'}</span></div>
       </div>`;
+    loadProfilePhoto();
   }else if(p==='pay'){
     renderPayPage();
   }else if(p==='more'){
@@ -357,6 +360,26 @@ function openUpiPay(){
   document.body.appendChild(m);
 }
 function copyUpi(){ navigator.clipboard?.writeText(UPI_ID).then(()=>alert('UPI ID कॉपी हो गई: '+UPI_ID)).catch(()=>alert(UPI_ID)); }
+
+// ── Profile photo (public bucket) ──
+async function loadProfilePhoto(){
+  const box=document.getElementById('prof-photo');
+  if(!box || !DATA.photo_url) return;
+  try{
+    let path=DATA.photo_url;
+    const marker='/client-photos/';
+    if(path.includes(marker)) path=path.split(marker)[1];
+    // bucket public hai -> public URL try karo
+    const {data}=db.storage.from('client-photos').getPublicUrl(path);
+    let url=data?.publicUrl;
+    // agar public na chale to signed URL fallback
+    if(!url){
+      const s=await db.storage.from('client-photos').createSignedUrl(path,3600);
+      url=s?.data?.signedUrl;
+    }
+    if(url) box.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='👤'"/>`;
+  }catch(e){}
+}
 
 document.getElementById('in-loan').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
 </script>
