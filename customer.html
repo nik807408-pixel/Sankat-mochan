@@ -75,13 +75,13 @@
     <div class="login-err" id="login-err"></div>
     <label>Customer ID / ग्राहक आईडी</label>
     <div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden">
-      <span style="background:#f1f5f9;padding:12px 10px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap">CUS-</span>
-      <input id="in-cust" placeholder="040258" autocomplete="off" inputmode="numeric" style="border:none;border-radius:0;margin:0;flex:1"/>
+      <span style="background:#f1f5f9;padding:12px 10px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap">CUS-2026-</span>
+      <input id="in-cust" placeholder="नंबर डालें" autocomplete="off" inputmode="numeric" style="border:none;border-radius:0;margin:0;flex:1"/>
     </div>
     <label>Loan ID / लोन आईडी</label>
     <div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden">
-      <span style="background:#f1f5f9;padding:12px 10px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap">LOAN-</span>
-      <input id="in-loan" placeholder="040258" autocomplete="off" inputmode="numeric" style="border:none;border-radius:0;margin:0;flex:1"/>
+      <span style="background:#f1f5f9;padding:12px 10px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap">LOAN-2026-</span>
+      <input id="in-loan" placeholder="नंबर डालें" autocomplete="off" inputmode="numeric" style="border:none;border-radius:0;margin:0;flex:1"/>
     </div>
     <button class="login-btn" id="login-btn" onclick="doLogin()">देखें / View Passbook</button>
   </div>
@@ -121,6 +121,9 @@ async function doLogin(saved){
   if(!custNum||!loanNum){if(err){err.textContent='Customer number aur Loan number dono daalein';err.style.display='block';}return;}
   if(btn){btn.disabled=true;btn.textContent='देख रहे हैं...';}
   try{
+    // prefix laga ke poora ID banao, number-only match bhi function mein hai
+    const fullCust = 'CUS-2026-'+custNum;
+    const fullLoan = 'LOAN-2026-'+loanNum;
     const {data,error}=await db.rpc('get_customer_passbook',{p_customer_num:custNum,p_loan_num:loanNum});
     if(error)throw error;
     if(!data||!data.found){
