@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f2547">
+<title>Sankat Mochan — ग्राहक पासबुक</title>
+<link rel="icon" href="icon-192.svg"/>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{--navy:#0f2547;--navy2:#1a3a6b;--maroon:#8b1a1a;--gold:#fbbf24;--bg:#f4f6f9;--text:#1a1a1a;--muted:#64748b;--border:#e2e8f0;--success:#16a34a;--danger:#dc2626}
+  body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:74px}
+  .wrap{max-width:480px;margin:0 auto}
+  #login-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#0a0a0a,#1f1f1f)}
+  #login-screen img{width:120px;height:auto;margin-bottom:18px}
+  .login-card{background:white;border-radius:20px;padding:26px 22px;width:100%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .login-card h1{font-size:18px;color:var(--navy);text-align:center;margin-bottom:4px}
+  .login-card .sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:20px}
+  .login-card label{font-size:12px;font-weight:600;color:var(--navy);display:block;margin-bottom:5px}
+  .login-card input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;font-size:15px;margin-bottom:14px}
+  .login-card input:focus{outline:none;border-color:var(--navy)}
+  .login-btn{width:100%;background:linear-gradient(135deg,var(--navy),var(--navy2));color:white;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer}
+  .login-err{background:#fef2f2;color:var(--danger);font-size:12.5px;padding:10px 12px;border-radius:8px;margin-bottom:12px;display:none}
+  .topbar{background:white;color:var(--maroon);padding:14px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .topbar .back{font-size:22px;cursor:pointer;color:var(--maroon);background:none;border:none;display:none}
+  .topbar .ttl{font-size:20px;font-weight:700;font-family:Georgia,serif}
+  .topbar img{width:34px;height:34px;border-radius:7px;margin-left:auto}
+  .page{display:none;padding:14px}
+  .page.active{display:block}
+  .loan-card{background:white;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 2px 10px rgba(15,37,71,.08)}
+  .loan-card .lc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .loan-card .lc-type{font-size:15px;font-weight:700;color:var(--navy)}
+  .loan-card .lc-id{font-size:14px;font-weight:700;color:var(--maroon)}
+  .loan-card .lc-body{display:flex;gap:10px}
+  .loan-card .lc-amt{flex:1;background:#64748b;color:white;border-radius:10px;padding:14px}
+  .loan-card .lc-amt .lbl{font-size:13px;opacity:.9}
+  .loan-card .lc-amt .val{font-size:20px;font-weight:800;margin-top:6px}
+  .loan-card .lc-btns{display:flex;flex-direction:column;gap:8px;justify-content:center}
+  .btn-maroon{background:var(--maroon);color:white;border:none;border-radius:9px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .det-card{background:white;border-radius:14px;padding:6px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(15,37,71,.07)}
+  .det-row{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);font-size:14px;gap:14px}
+  .det-row:last-child{border-bottom:none}
+  .det-row .k{color:var(--text)} .det-row .v{font-weight:700;color:var(--maroon);text-align:right}
+  .twobtn{display:flex;gap:10px;margin-top:4px}
+  .twobtn .btn-maroon{flex:1;text-align:center}
+  .tbl-head{background:var(--maroon);color:white;border-radius:10px;display:flex;padding:12px 8px;font-size:12px;font-weight:700;text-align:center;margin-bottom:8px}
+  .tbl-head>div{flex:1}
+  .tbl-row{background:white;border-radius:10px;display:flex;padding:14px 8px;font-size:13px;text-align:center;margin-bottom:8px;box-shadow:0 1px 5px rgba(15,37,71,.06);align-items:center}
+  .tbl-row>div{flex:1}
+  .sec-box{border:1.5px solid var(--maroon);border-radius:10px;padding:12px 16px;font-weight:700;color:var(--maroon);font-size:15px;margin:14px 0 10px}
+  .pcard{background:white;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(15,37,71,.07)}
+  .pcard .prow{display:flex;padding:9px 0;font-size:14px;gap:10px}
+  .pcard .prow .pk{font-weight:700;color:var(--navy);min-width:120px}
+  .pcard .prow .pv{color:var(--muted)}
+  .ptop{text-align:center;padding:10px 0}
+  .ptop .pname{font-size:18px;font-weight:800;color:var(--navy);margin-top:6px}
+  .overdue{background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;padding:14px;margin-bottom:14px}
+  .overdue .t{font-weight:800;color:var(--danger);font-size:14px}
+  .overdue .s{font-size:12.5px;color:#7f1d1d;margin-top:3px}
+  .bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;display:flex;justify-content:space-around;padding:8px 0 10px;box-shadow:0 -2px 12px rgba(0,0,0,.08);z-index:30}
+  .bnav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);cursor:pointer;flex:1}
+  .bnav button.active{color:var(--maroon);font-weight:700}
+  .bnav .ic{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .menu-item{background:white;border-radius:12px;padding:18px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(15,37,71,.06);font-size:15px;font-weight:600;color:var(--navy);cursor:pointer}
+  .logout-btn{display:block;margin:24px auto 8px;background:var(--maroon);color:white;border:none;border-radius:10px;padding:13px 40px;font-size:15px;font-weight:700;cursor:pointer}
+  .ver{text-align:center;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="login-screen">
+  <img src="icon-192.svg" alt="Sankat Mochan" onerror="this.style.display='none'"/>
+  <div class="login-card">
+    <h1>ग्राहक पासबुक</h1>
+    <div class="sub">Customer Passbook — अपनी जानकारी देखें</div>
+    <div class="login-err" id="login-err"></div>
+    <label>Customer ID / ग्राहक आईडी</label>
+    <input id="in-cust" placeholder="CUS-..." autocomplete="off"/>
+    <label>Loan ID / लोन आईडी</label>
+    <input id="in-loan" placeholder="LOAN-..." autocomplete="off"/>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">देखें / View Passbook</button>
+  </div>
+  <div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:18px">Sankat Mochan Finance</div>
+</div>
+<div id="app" class="wrap" style="display:none">
+  <div class="topbar">
+    <button class="back" id="backBtn" onclick="goBack()">←</button>
+    <div class="ttl" id="pageTitle">Loan</div>
+    <img src="icon-192.svg" alt="" onerror="this.style.display='none'"/>
+  </div>
+  <div class="page active" id="pg-loan"></div>
+  <div class="page" id="pg-detail"></div>
+  <div class="page" id="pg-demand"></div>
+  <div class="page" id="pg-history"></div>
+  <div class="page" id="pg-profile"></div>
+  <div class="page" id="pg-more"></div>
+  <div class="bnav">
+    <button id="nav-loan" class="active" onclick="showPage('loan')"><span class="ic">📋</span>Loan</button>
+    <button id="nav-profile" onclick="showPage('profile')"><span class="ic">👤</span>Profile</button>
+    <button id="nav-more" onclick="showPage('more')"><span class="ic">⋯</span>More</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://chaenhnaslkmzutmsumi.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYWVuaG5hc2xrbXp1dG1zdW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzA2MjcsImV4cCI6MjA5MzYwNjYyN30.X-f-HPQzFMu7DivRZJz9y0Zx2DMjlh3trN66MWAhU1g';
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const fmt=n=>(parseFloat(n)||0).toLocaleString('en-IN',{maximumFractionDigits:0});
+const fmt2=n=>(parseFloat(n)||0).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1});
+let DATA=null,LOAN=null,pageHistory=['loan'];
+async function doLogin(){
+  const cust=document.getElementById('in-cust').value.trim();
+  const loan=document.getElementById('in-loan').value.trim();
+  const err=document.getElementById('login-err'),btn=document.getElementById('login-btn');
+  err.style.display='none';
+  if(!cust||!loan){err.textContent='Customer ID aur Loan ID dono daalein';err.style.display='block';return;}
+  btn.disabled=true;btn.textContent='देख रहे हैं...';
+  try{
+    const {data,error}=await db.rpc('get_customer_passbook',{p_customer_id:cust,p_loan_id:loan});
+    if(error)throw error;
+    if(!data||!data.found){err.textContent='❌ Galat Customer ID ya Loan ID.';err.style.display='block';btn.disabled=false;btn.textContent='देखें / View Passbook';return;}
+    DATA=data;computeLoan();
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    showPage('loan');window.scrollTo(0,0);
+  }catch(e){err.textContent='Error: '+(e.message||'galat');err.style.display='block';btn.disabled=false;btn.textContent='देखें / View Passbook';}
+}
+function logout(){location.reload();}
+function computeLoan(){
+  const d=DATA;
+  const balanceField=parseFloat(d.balance)||0;
+  const interest=parseFloat(d.interest_amount)||0;
+  const weeks=parseInt(d.loan_weeks)||12;
+  const credits=(d.payments||[]).filter(p=>p.type==='credit').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const totalPaid=credits.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+  // Admin app: 'balance' field hi original loan principal hai (jaise renew/EMI form mein).
+  // weeklyEMI = (balance + interest) / weeks
+  let principal=parseFloat(d.loan_amount)||0;
+  if(principal<=0) principal=balanceField; // fallback: balance = principal
+
+  const total=principal+interest;
+  const emi=weeks>0?Math.round(total/weeks):0;
+  const paid=totalPaid;
+  const balance=Math.max(0,total-paid); // actual remaining
+  const paidWeeks=emi>0?Math.round(paid/emi):0;
+  let start=d.first_emi_date?new Date(d.first_emi_date):(d.loan_date?new Date(d.loan_date):(credits[0]?new Date(credits[0].date):new Date()));
+  // FLAT split — har week barabar principal aur interest (admin app jaisa)
+  const prinPerWeek=weeks>0?Math.round(principal/weeks):0;
+  const intPerWeek=weeks>0?Math.round(interest/weeks):0;
+  let schedule=[];
+  for(let i=0;i<weeks;i++){
+    const dt=new Date(start);dt.setDate(dt.getDate()+i*7);
+    schedule.push({seq:i+1,date:dt,principal:prinPerWeek,interest:intPerWeek,total:prinPerWeek+intPerWeek});
+  }
+  let nextDue=null,isOverdue=false,overdueAmt=0;
+  if(balance>0){
+    const idx=Math.min(paidWeeks,weeks-1);
+    nextDue=schedule[idx]?schedule[idx].date:null;
+    if(nextDue){isOverdue=nextDue<new Date(new Date().toDateString());if(isOverdue)overdueAmt=emi;}
+  }
+  let runHistory=[],out=total;
+  credits.forEach(p=>{out-=parseFloat(p.amount)||0;runHistory.push({date:p.date,amount:p.amount,mode:(p.description||'Cash'),outstanding:Math.max(0,out)});});
+  runHistory.reverse();
+  LOAN={principal,interest,total,balance,paid,weeks,emi,paidWeeks,schedule,nextDue,isOverdue,overdueAmt,runHistory,rate:principal>0?((interest/principal)*100).toFixed(2):'0'};
+}
+const dmy=d=>d?(d.getDate?d:new Date(d)).toLocaleDateString('en-GB'):'-';
+function showPage(p,isBack){
+  if(!isBack&&p!==pageHistory[pageHistory.length-1])pageHistory.push(p);
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.getElementById('pg-'+p).classList.add('active');
+  ['loan','profile','more'].forEach(n=>{const b=document.getElementById('nav-'+n);if(b)b.classList.toggle('active',n===p);});
+  const titles={loan:'Loan',detail:'Loan Details',demand:'Demand Details',history:'Payment History',profile:'Profile',more:'More'};
+  document.getElementById('pageTitle').textContent=titles[p]||'';
+  document.getElementById('backBtn').style.display=(['detail','demand','history'].includes(p))?'block':'none';
+  render(p);window.scrollTo(0,0);
+}
+function goBack(){if(pageHistory.length>1){pageHistory.pop();showPage(pageHistory[pageHistory.length-1],true);}}
+function render(p){
+  const d=DATA,L=LOAN;
+  if(p==='loan'){
+    document.getElementById('pg-loan').innerHTML=`
+      <div class="loan-card">
+        <div class="lc-top"><span class="lc-type">${d.loan_cycle||'Loan'}</span><span class="lc-id">${d.loan_id||''}</span></div>
+        <div class="lc-body">
+          <div class="lc-amt"><div class="lbl">Outstanding Amount</div><div class="val">₹ ${fmt2(L.balance)}</div></div>
+          <div class="lc-btns"><button class="btn-maroon" onclick="showPage('detail')">Details</button></div>
+        </div>
+      </div>
+      <div style="text-align:center;color:var(--muted);font-size:12px;margin-top:8px">नमस्ते ${d.name||''} 🙏<br>अपने लोन की पूरी जानकारी के लिए Details दबाएं</div>`;
+  }else if(p==='detail'){
+    document.getElementById('pg-detail').innerHTML=`
+      ${L.isOverdue?`<div class="overdue"><div class="t">⚠️ किस्त बाकी है / Overdue</div><div class="s">आपकी EMI की तारीख (${dmy(L.nextDue)}) निकल गई है। कृपया जल्द भुगतान करें।</div></div>`:''}
+      <div class="det-card">
+        <div class="det-row"><span class="k">Loan Id</span><span class="v">${d.loan_id||'-'}</span></div>
+        <div class="det-row"><span class="k">Outstanding</span><span class="v">₹${fmt2(L.balance)}</span></div>
+        <div class="det-row"><span class="k">Next Emi Amount</span><span class="v">₹${fmt(L.emi)}</span></div>
+        <div class="det-row"><span class="k">Overdue Amount</span><span class="v">₹${fmt(L.overdueAmt)}</span></div>
+        <div class="det-row"><span class="k">Next Emi Date</span><span class="v">${dmy(L.nextDue)}</span></div>
+        <div class="det-row"><span class="k">Principal Total</span><span class="v">₹${fmt(L.principal)}</span></div>
+        <div class="det-row"><span class="k">Interest Total</span><span class="v">₹${fmt(L.interest)}</span></div>
+        <div class="det-row"><span class="k">Total Amount Due</span><span class="v">₹${fmt2(L.total)}</span></div>
+        <div class="det-row"><span class="k">Interest Rate</span><span class="v">${L.rate}%</span></div>
+        <div class="det-row"><span class="k">Loan Tenure</span><span class="v">${L.weeks} Weeks</span></div>
+        <div class="det-row"><span class="k">Remaining/Total</span><span class="v">${Math.max(0,L.weeks-L.paidWeeks)}/${L.weeks}</span></div>
+      </div>
+      <div class="twobtn">
+        <button class="btn-maroon" onclick="showPage('history')">Payment History</button>
+        <button class="btn-maroon" onclick="showPage('demand')">Demand Details</button>
+      </div>`;
+  }else if(p==='demand'){
+    document.getElementById('pg-demand').innerHTML=`
+      <div class="tbl-head"><div>Seq</div><div>Date</div><div>Principal</div><div>Interest</div><div>Total</div><div>Received</div></div>
+      ${L.schedule.map((s,i)=>`<div class="tbl-row"><div>${s.seq}</div><div style="font-size:11px">${dmy(s.date)}</div><div>${fmt(s.principal)}</div><div>${fmt(s.interest)}</div><div>${fmt(s.total)}</div><div style="color:${i<L.paidWeeks?'var(--success)':'var(--muted)'};font-weight:700">${i<L.paidWeeks?'✓ '+fmt(s.total):'-'}</div></div>`).join('')}`;
+  }else if(p==='history'){
+    const h=L.runHistory;
+    document.getElementById('pg-history').innerHTML=`
+      <div class="tbl-head"><div>Date</div><div>Collected</div><div>Mode</div><div>Outstanding</div></div>
+      ${h.length?h.map(r=>`<div class="tbl-row"><div>${dmy(r.date)}</div><div>${fmt(r.amount)}</div><div style="font-size:11px">${(r.mode||'Cash').slice(0,8)}</div><div>${fmt(r.outstanding)}</div></div>`).join(''):'<div style="text-align:center;color:var(--muted);padding:24px">कोई भुगतान नहीं</div>'}`;
+  }else if(p==='profile'){
+    const mask=(s,keep=4)=>s?'*'.repeat(Math.max(0,(''+s).length-keep))+(''+s).slice(-keep):'-';
+    document.getElementById('pg-profile').innerHTML=`
+      <div class="pcard"><div class="ptop"><div class="pname">${d.name||'-'}</div></div>
+        <div class="prow"><span class="pk">Name</span><span class="pv">${d.name||'-'}</span></div>
+        <div class="prow"><span class="pk">DOB</span><span class="pv">${d.dob?dmy(d.dob):'-'}</span></div>
+        <div class="prow"><span class="pk">Customer Id</span><span class="pv">${d.customer_id||'-'}</span></div>
+        <div class="prow"><span class="pk">Father/Spouse</span><span class="pv">${d.father_name||'-'}</span></div>
+        <div class="prow"><span class="pk">Phone</span><span class="pv">${d.phone||'-'}</span></div>
+      </div>
+      <div class="sec-box">KYC Details</div>
+      <div class="pcard">
+        <div class="prow"><span class="pk">Aadhaar</span><span class="pv">${mask(d.aadhaar_no)}</span></div>
+        <div class="prow"><span class="pk">PAN</span><span class="pv">${d.pan_no?mask(d.pan_no,4):'-'}</span></div>
+      </div>
+      <div class="sec-box">Address Details</div>
+      <div class="pcard"><div class="prow"><span class="pk">Address</span><span class="pv">${d.address||'-'}</span></div></div>
+      <div class="sec-box">Bank Details</div>
+      <div class="pcard">
+        <div class="prow"><span class="pk">Bank Name</span><span class="pv">${d.bank_name||'-'}</span></div>
+        <div class="prow"><span class="pk">Account No</span><span class="pv">${d.account_no?mask(d.account_no):'-'}</span></div>
+      </div>
+      <div class="sec-box">Center Details</div>
+      <div class="pcard">
+        <div class="prow"><span class="pk">Center</span><span class="pv">${d.center_name||'-'}</span></div>
+        <div class="prow"><span class="pk">Meeting Day</span><span class="pv">${d.meeting_day||'-'}</span></div>
+      </div>`;
+  }else if(p==='more'){
+    document.getElementById('pg-more').innerHTML=`
+      <div class="menu-item" onclick="alert('Sankat Mochan Finance — आपकी विश्वसनीय माइक्रोफाइनेंस सेवा।')">About Us <span>→</span></div>
+      <div class="menu-item" onclick="alert('आपका डेटा सुरक्षित है। हम आपकी जानकारी किसी तीसरे पक्ष से साझा नहीं करते।')">Privacy Policy <span>→</span></div>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+      <div class="ver">Customer Passbook v3</div>`;
+  }
+}
+document.getElementById('in-loan').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
+</script>
+</body>
+</html>
