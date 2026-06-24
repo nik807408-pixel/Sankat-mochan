@@ -259,15 +259,10 @@ function render(p){
       </div>
       <div class="sec-box">Address Details</div>
       <div class="pcard"><div class="prow"><span class="pk">Address</span><span class="pv">${d.address||'-'}</span></div></div>
-      <div class="sec-box">Bank Details</div>
+      <div class="sec-box">Center Details / केंद्र विवरण</div>
       <div class="pcard">
-        <div class="prow"><span class="pk">Bank Name</span><span class="pv">${d.bank_name||'-'}</span></div>
-        <div class="prow"><span class="pk">Account No</span><span class="pv">${d.account_no?mask(d.account_no):'-'}</span></div>
-      </div>
-      <div class="sec-box">Center Details</div>
-      <div class="pcard">
-        <div class="prow"><span class="pk">Center</span><span class="pv">${d.center_name||'-'}</span></div>
-        <div class="prow"><span class="pk">Meeting Day</span><span class="pv">${d.meeting_day||'-'}</span></div>
+        <div class="prow"><span class="pk">Center / केंद्र</span><span class="pv">${d.center_name||'-'}</span></div>
+        <div class="prow"><span class="pk">Meeting Day / मीटिंग दिन</span><span class="pv">${d.meeting_day||d.finance_company||d.bank_name||'-'}</span></div>
       </div>`;
   }else if(p==='more'){
     document.getElementById('pg-more').innerHTML=`
