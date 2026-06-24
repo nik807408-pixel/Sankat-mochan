@@ -127,14 +127,21 @@ async function doLogin(){
 function logout(){location.reload();}
 function computeLoan(){
   const d=DATA;
-  const principal=parseFloat(d.loan_amount)||0;
+  const balanceField=parseFloat(d.balance)||0;
   const interest=parseFloat(d.interest_amount)||0;
-  const total=principal+interest;
-  const balance=parseFloat(d.balance)||0;
-  const paid=total-balance;
   const weeks=parseInt(d.loan_weeks)||12;
-  const emi=weeks>0?Math.round(total/weeks):0;
   const credits=(d.payments||[]).filter(p=>p.type==='credit').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const totalPaid=credits.reduce((s,p)=>s+(parseFloat(p.amount)||0),0);
+
+  // Admin app: 'balance' field hi original loan principal hai (jaise renew/EMI form mein).
+  // weeklyEMI = (balance + interest) / weeks
+  let principal=parseFloat(d.loan_amount)||0;
+  if(principal<=0) principal=balanceField; // fallback: balance = principal
+
+  const total=principal+interest;
+  const emi=weeks>0?Math.round(total/weeks):0;
+  const paid=totalPaid;
+  const balance=Math.max(0,total-paid); // actual remaining
   const paidWeeks=emi>0?Math.round(paid/emi):0;
   let start=d.first_emi_date?new Date(d.first_emi_date):(d.loan_date?new Date(d.loan_date):(credits[0]?new Date(credits[0].date):new Date()));
   // FLAT split — har week barabar principal aur interest (admin app jaisa)
