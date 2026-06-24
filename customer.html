@@ -361,24 +361,31 @@ function openUpiPay(){
 }
 function copyUpi(){ navigator.clipboard?.writeText(UPI_ID).then(()=>alert('UPI ID कॉपी हो गई: '+UPI_ID)).catch(()=>alert(UPI_ID)); }
 
-// ── Profile photo (public bucket) ──
+// ── Profile photo (admin app jaisा — signed URL) ──
 async function loadProfilePhoto(){
   const box=document.getElementById('prof-photo');
-  if(!box || !DATA.photo_url) return;
+  if(!box) return;
+  if(!DATA.photo_url){ console.log('No photo_url for this client'); return; }
   try{
     let path=DATA.photo_url;
     const marker='/client-photos/';
-    if(path.includes(marker)) path=path.split(marker)[1];
-    // bucket public hai -> public URL try karo
-    const {data}=db.storage.from('client-photos').getPublicUrl(path);
-    let url=data?.publicUrl;
-    // agar public na chale to signed URL fallback
+    const i=path.indexOf(marker);
+    if(i!==-1) path=path.substring(i+marker.length).split('?')[0];
+    // try signed URL (admin jaisा)
+    let url='';
+    try{
+      const {data}=await db.storage.from('client-photos').createSignedUrl(path,3600);
+      url=data?.signedUrl||'';
+    }catch(e){}
+    // fallback: public URL
     if(!url){
-      const s=await db.storage.from('client-photos').createSignedUrl(path,3600);
-      url=s?.data?.signedUrl;
+      const {data}=db.storage.from('client-photos').getPublicUrl(path);
+      url=data?.publicUrl||'';
     }
-    if(url) box.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='👤'"/>`;
-  }catch(e){}
+    if(url){
+      box.innerHTML=`<img src="${url}" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='👤';console.log('img load fail')"/>`;
+    }
+  }catch(e){console.log('photo error',e);}
 }
 
 document.getElementById('in-loan').addEventListener('keypress',e=>{if(e.key==='Enter')doLogin();});
