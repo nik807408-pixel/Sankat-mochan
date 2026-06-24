@@ -74,9 +74,15 @@
     <div class="sub">Customer Passbook — अपनी जानकारी देखें</div>
     <div class="login-err" id="login-err"></div>
     <label>Customer ID / ग्राहक आईडी</label>
-    <input id="in-cust" placeholder="CUS-..." autocomplete="off"/>
+    <div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden">
+      <span style="background:#f1f5f9;padding:12px 10px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap">CUS-</span>
+      <input id="in-cust" placeholder="040258" autocomplete="off" inputmode="numeric" style="border:none;border-radius:0;margin:0;flex:1"/>
+    </div>
     <label>Loan ID / लोन आईडी</label>
-    <input id="in-loan" placeholder="LOAN-..." autocomplete="off"/>
+    <div style="display:flex;align-items:center;border:1.5px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden">
+      <span style="background:#f1f5f9;padding:12px 10px;font-size:14px;color:var(--muted);font-weight:600;white-space:nowrap">LOAN-</span>
+      <input id="in-loan" placeholder="040258" autocomplete="off" inputmode="numeric" style="border:none;border-radius:0;margin:0;flex:1"/>
+    </div>
     <button class="login-btn" id="login-btn" onclick="doLogin()">देखें / View Passbook</button>
   </div>
   <div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:18px">Sankat Mochan Finance</div>
@@ -108,16 +114,17 @@ const fmt=n=>(parseFloat(n)||0).toLocaleString('en-IN',{maximumFractionDigits:0}
 const fmt2=n=>(parseFloat(n)||0).toLocaleString('en-IN',{minimumFractionDigits:1,maximumFractionDigits:1});
 let DATA=null,LOAN=null,pageHistory=['loan'];
 async function doLogin(){
-  const cust=document.getElementById('in-cust').value.trim();
-  const loan=document.getElementById('in-loan').value.trim();
+  const custNum=document.getElementById('in-cust').value.trim();
+  const loanNum=document.getElementById('in-loan').value.trim();
   const err=document.getElementById('login-err'),btn=document.getElementById('login-btn');
   err.style.display='none';
-  if(!cust||!loan){err.textContent='Customer ID aur Loan ID dono daalein';err.style.display='block';return;}
+  if(!custNum||!loanNum){err.textContent='Customer number aur Loan number dono daalein';err.style.display='block';return;}
   btn.disabled=true;btn.textContent='देख रहे हैं...';
   try{
-    const {data,error}=await db.rpc('get_customer_passbook',{p_customer_id:cust,p_loan_id:loan});
+    // customer sirf number daalta hai; hum number se match karte hain (year koi bhi ho)
+    const {data,error}=await db.rpc('get_customer_passbook',{p_customer_num:custNum,p_loan_num:loanNum});
     if(error)throw error;
-    if(!data||!data.found){err.textContent='❌ Galat Customer ID ya Loan ID.';err.style.display='block';btn.disabled=false;btn.textContent='देखें / View Passbook';return;}
+    if(!data||!data.found){err.textContent='❌ Galat number. Kripya sahi Customer/Loan number daalein.';err.style.display='block';btn.disabled=false;btn.textContent='देखें / View Passbook';return;}
     DATA=data;computeLoan();
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app').style.display='block';
