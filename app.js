@@ -2,12 +2,24 @@
 //  CONFIGURATION — Replace with your Supabase values
 //  supabase.com → Project Settings → API
 // ─────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://chaenhnaslkmzutmsumi.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYWVuaG5hc2xrbXp1dG1zdW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzA2MjcsImV4cCI6MjA5MzYwNjYyN30.X-f-HPQzFMu7DivRZJz9y0Zx2DMjlh3trN66MWAhU1g';
+const SUPABASE_URL = 'https://oswbpddfbofoyddxdfej.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zd2JwZGRmYm9mb3lkZHhkZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MzA0NDUsImV4cCI6MjA5NTEwNjQ0NX0.Gem36jnT-m4I13k078tYxyxPfv_FLChfxgrMK4Kzk7o';
 // ─────────────────────────────────────────────────────────
 
 // ── HELPER FUNCTIONS ─────────────────────
 function fmt(n) { return Number(n||0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+// Current loan ke payments (renew ke baad purane loan ke payments hata ke).
+// Renew par naya loan_date set hota hai; usse pehle wale payments purane loan ke hain.
+function currentLoanPayments(cl) {
+  const loanStart = cl.loan_date ? new Date(cl.loan_date) : null;
+  return allPayments.filter(p => {
+    if (p.client_id !== cl.id || p.type !== 'credit') return false;
+    if ((p.description||'').includes('DELETED')) return false;
+    if (loanStart && p.date && new Date(p.date) < loanStart) return false;
+    return true;
+  });
+}
 function v(id) { return (document.getElementById(id)?.value || '').trim(); }
 function dRow(lbl, val) { return val ? `<div class="detail-row"><span class="detail-lbl">${lbl}</span><span class="detail-val">${val}</span></div>` : ''; }
 function emptyState(icon, msg) { return `<div class="empty"><div class="empty-icon">${icon}</div><p style="margin-top:10px;font-size:13px">${msg}</p></div>`; }
@@ -121,7 +133,7 @@ async function manualRefresh() {
   if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
 }
 
-// ── DEMO MODE — DISABLED in production (Sankat Mochan) ────────
+// ── DEMO MODE — DISABLED in production (Dhan Raksha) ────────
 // Demo login Dhan Raksha demo app ke liye tha. Production me real
 // Supabase auth use hota hai. Yeh stubs accidental/console call rok dete hain.
 async function initDemoApp() { showAuth(); }
@@ -728,7 +740,7 @@ function sendOTPviaSMS() {
   const indiaPhone = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
 
   // SMS message
-  const msg = 'Sankat Mochan Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
+  const msg = 'Dhan Raksha Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
 
   // Open SMS app directly
   window.open('sms:+' + indiaPhone + '?body=' + encodeURIComponent(msg), '_blank');
@@ -761,7 +773,7 @@ function sendClientOTP() {
     `🙏 नमस्ते ${name} जी!
 
 ` +
-    `संकट मोचन Finance में आपका OTP है:
+    `धन रक्षा Finance में आपका OTP है:
 
 ` +
     `*${generatedOTP}*
@@ -772,7 +784,7 @@ function sendClientOTP() {
     `किसी को share न करें।
 
 ` +
-    `संकट मोचन Finance 🚩`
+    `धन रक्षा Finance 🚩`
   );
 
   const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -1366,11 +1378,12 @@ async function savePayment() {
   const cl = allClients.find(c => c.id === activeClientId);
   if (cl) {
     const totalLoanInterest = (parseFloat(cl.balance)||0) + (parseFloat(cl.interest_amount)||0);
-    const totalPaid = allPayments
-      .filter(p => p.client_id === activeClientId && p.type === 'credit' && !(p.description||'').includes('Reversal') && !(p.description||'').includes('DELETED'))
+    const totalPaid = currentLoanPayments(cl)
+      .filter(p => !(p.description||'').includes('Reversal'))
       .reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+    const loanStart = cl.loan_date ? new Date(cl.loan_date) : null;
     const debitRev = allPayments
-      .filter(p => p.client_id === activeClientId && p.type === 'debit' && (p.description||'').includes('Reversal'))
+      .filter(p => p.client_id === activeClientId && p.type === 'debit' && (p.description||'').includes('Reversal') && (!loanStart || !p.date || new Date(p.date) >= loanStart))
       .reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
     const outstanding = Math.max(0, totalLoanInterest - totalPaid + debitRev);
 
@@ -1499,7 +1512,7 @@ function renderClientsTab() {
 
 // ── EMI TAB ───────────────────────────────
 function renderEMICard(cl) {
-  const payments = allPayments.filter(p => p.client_id === cl.id && p.type === 'credit');
+  const payments = currentLoanPayments(cl);
   const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount)||0), 0);
   const loanAmt = parseFloat(cl.balance) || 0;
   const interest = parseFloat(cl.interest_amount) || 0;
@@ -1659,7 +1672,8 @@ function renderPassbookTab() {
   <div id="passbook-client-list-more">`;
   
   clients.forEach(cl => {
-    const payments = allPayments.filter(p => p.client_id === cl.id && p.type === 'credit');
+    // Renew ke baad: sirf current loan ke payments gino
+    const payments = currentLoanPayments(cl);
     const loan = parseFloat(cl.balance)||0;
     const interest = parseFloat(cl.interest_amount)||0;
     const totalPaid = payments.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
@@ -1828,6 +1842,11 @@ function openRenewModal(clientId) {
             <option value="12" ${(cl.loan_weeks||12)==12?'selected':''}>12 Weeks</option>
             <option value="16" ${cl.loan_weeks==16?'selected':''}>16 Weeks</option>
             <option value="24" ${cl.loan_weeks==24?'selected':''}>24 Weeks</option>
+            <option value="32" ${cl.loan_weeks==32?'selected':''}>32 Weeks</option>
+            <option value="36" ${cl.loan_weeks==36?'selected':''}>36 Weeks</option>
+            <option value="40" ${cl.loan_weeks==40?'selected':''}>40 Weeks</option>
+            <option value="52" ${cl.loan_weeks==52?'selected':''}>52 Weeks</option>
+            <option value="60" ${cl.loan_weeks==60?'selected':''}>60 Weeks</option>
           </select>
         </div>
         <div>
@@ -2126,7 +2145,7 @@ function buildMonthlyReportHTML(month) {
 
   return `
   <div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;text-align:center;box-shadow:0 2px 8px rgba(15,37,71,.08)">
-    <div style="font-size:16px;font-weight:800;color:var(--navy)">संकट मोचन Finance — Monthly Report</div>
+    <div style="font-size:16px;font-weight:800;color:var(--navy)">धन रक्षा Finance — Monthly Report</div>
     <div style="font-size:12px;color:var(--muted)">${monthLabel}</div>
   </div>
 
@@ -2192,7 +2211,7 @@ function renderCashBookTab() {
     <!-- Header -->
     <div id="cashbook-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
       <div style="text-align:center;font-size:16px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:10px">
-        संकट मोचन Finance — Cash Book / नकद बही
+        धन रक्षा Finance — Cash Book / नकद बही
       </div>
       <div style="display:flex;gap:10px;margin-bottom:10px;font-size:12px">
         <div style="flex:1">
@@ -2387,8 +2406,7 @@ async function quickPay(clientId, defaultEmi) {
 
     // Auto-close check
     const totalLoanInterest = (parseFloat(cl.balance)||0) + (parseFloat(cl.interest_amount)||0);
-    const totalPaid = allPayments
-      .filter(p => p.client_id === clientId && p.type === 'credit' && !(p.description||'').includes('DELETED'))
+    const totalPaid = currentLoanPayments(cl)
       .reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
     const outstanding = Math.max(0, totalLoanInterest - totalPaid);
 
@@ -2460,7 +2478,7 @@ function printLoanCard(clientId) {
 
 <!-- Header -->
 <div class="header">
-  <div class="company-name">संकट मोचन Finance</div>
+  <div class="company-name">धन रक्षा Finance</div>
   <div class="company-sub">शाखा कार्यालय: बलिया, उत्तर प्रदेश</div>
 </div>
 
@@ -2519,7 +2537,7 @@ function printLoanCard(clientId) {
 
 <!-- Helpline -->
 <div class="footer-text">
-  किसी भी शिकायत के लिए संपर्क करें | For any complaint please contact: <strong>संकट मोचन Finance, बलिया</strong>
+  किसी भी शिकायत के लिए संपर्क करें | For any complaint please contact: <strong>धन रक्षा Finance, बलिया</strong>
 </div>
 
 <!-- Signatures -->
@@ -2882,7 +2900,7 @@ function voiceResolveClient(clientId, amount, isBalanceQuery) {
 
   if (isBalanceQuery || !amount) {
     const totalDue = (parseFloat(c.balance)||0) + (parseFloat(c.interest_amount)||0);
-    const paid = allPayments.filter(p => p.client_id === c.id && p.type === 'credit' && !(p.description||'').includes('DELETED'))
+    const paid = currentLoanPayments(c)
       .reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
     const outstanding = Math.max(0, totalDue - paid);
 
@@ -3099,7 +3117,7 @@ function printCashBook() {
   <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
   th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
   @media print{@page{margin:10mm}}</style></head><body>
-  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
+  <h2 style="text-align:center;margin-bottom:4px">धन रक्षा Finance — Cash Book</h2>
   <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
   ${getPrintableHTML('cashbook-print-area')}</body></html>`;
   const w = window.open('','_blank');
@@ -3385,7 +3403,7 @@ function renderMeetingTab() {
     
     // Company Header
     html += '<div style="text-align:center;padding:10px;border-bottom:2px solid #000">';
-    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">संकट मोचन Finance</div>';
+    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">धन रक्षा Finance</div>';
     html += '<div style="font-size:11px;color:#666">शाखा कार्यालय: बलिया</div>';
     html += '</div>';
 
@@ -3814,12 +3832,13 @@ function showNPAReport() {
     const expectedInstallments = Math.min(weeksElapsed, totalWeeks);
     if (expectedInstallments <= 0) return false;
 
-    // Real payments (reversal exclude)
-    const realPaid = allPayments
-      .filter(p => p.client_id === c.id && p.type === 'credit' && !(p.description||'').includes('Reversal') && !(p.description||'').includes('DELETED'))
+    // Real payments (reversal exclude) — current loan ke hi
+    const realPaid = currentLoanPayments(c)
+      .filter(p => !(p.description||'').includes('Reversal'))
       .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    const loanStartNpa = c.loan_date ? new Date(c.loan_date) : null;
     const debitReversals = allPayments
-      .filter(p => p.client_id === c.id && p.type === 'debit' && (p.description||'').includes('Reversal'))
+      .filter(p => p.client_id === c.id && p.type === 'debit' && (p.description||'').includes('Reversal') && (!loanStartNpa || !p.date || new Date(p.date) >= loanStartNpa))
       .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     const netPaid = Math.max(0, realPaid - debitReversals);
 
@@ -3891,7 +3910,7 @@ async function downloadClientPDF(clientId) {
       @media print{button{display:none}}
     </style></head>
     <body>
-      <h1>🚩 Sankat Mochan Finance — Client Report</h1>
+      <h1>🚩 Dhan Raksha Finance — Client Report</h1>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px">Generated: ${new Date().toLocaleString('hi-IN')}</div>
 
       <div class="section">
@@ -3977,7 +3996,7 @@ function sendWhatsAppReminder(clientId) {
     `• कुल भुगतान: ₹${fmt(totalPaid)}\n` +
     `• बकाया राशि: ₹${fmt(pending)}\n\n` +
     `कृपया समय पर भुगतान करें। धन्यवाद! 🙏\n\n` +
-    `Sankat Mochan Finance`
+    `Dhan Raksha Finance`
   );
 
   const phone = c.phone.replace(/[^0-9]/g, '');
@@ -3988,7 +4007,7 @@ function sendWhatsAppReminder(clientId) {
 function sendBirthdayWish(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number', 'error'); return; }
-  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nSankat Mochan Finance 🙏`);
+  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nDhan Raksha Finance 🙏`);
   const phone = c.phone.replace(/[^0-9]/g, '');
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 }
@@ -4213,7 +4232,7 @@ function showPassbook() {
     <div id="passbook-client-list">
       ${allClients.length === 0 ? emptyState('📒','No clients yet') :
         allClients.map(cl => {
-          const payments = allPayments.filter(p => p.client_id === cl.id && p.type === 'credit');
+          const payments = currentLoanPayments(cl);
           const totalPaid = payments.reduce((s,p) => s+(parseFloat(p.amount)||0), 0);
           const loan = parseFloat(cl.balance)||0;
           const outstanding = Math.max(0, loan - totalPaid);
@@ -4695,7 +4714,7 @@ function printMeetingSheet() {
     pagesHtml += `
     <div class="page">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
-        <div style="font-size:16px;font-weight:bold">संकट मोचन FINANCE</div>
+        <div style="font-size:16px;font-weight:bold">धन रक्षा FINANCE</div>
         <div style="font-size:10px">शाखा कार्यालय: बलिया</div>
       </div>
       <table class="info-table">
@@ -4794,7 +4813,7 @@ function printMeetingSheet() {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>CDS - Sankat Mochan Finance</title>
+<title>CDS - Dhan Raksha Finance</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, sans-serif; font-size: 9px; color: #000; }
@@ -4908,7 +4927,7 @@ function showMeetingDay() {
 
             <!-- Company Header -->
             <div style="text-align:center;border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:10px">
-              <div style="font-size:15px;font-weight:700;color:var(--navy)">संकट मोचन Finance</div>
+              <div style="font-size:15px;font-weight:700;color:var(--navy)">धन रक्षा Finance</div>
               <div style="font-size:11px;color:var(--muted)">Center Day Sheet (CDS)</div>
             </div>
 
