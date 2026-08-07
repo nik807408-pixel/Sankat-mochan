@@ -2,8 +2,8 @@
 //  CONFIGURATION — Replace with your Supabase values
 //  supabase.com → Project Settings → API
 // ─────────────────────────────────────────────────────────
-const SUPABASE_URL = 'https://oswbpddfbofoyddxdfej.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9zd2JwZGRmYm9mb3lkZHhkZmVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MzA0NDUsImV4cCI6MjA5NTEwNjQ0NX0.Gem36jnT-m4I13k078tYxyxPfv_FLChfxgrMK4Kzk7o';
+const SUPABASE_URL = 'https://chaenhnaslkmzutmsumi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYWVuaG5hc2xrbXp1dG1zdW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzA2MjcsImV4cCI6MjA5MzYwNjYyN30.X-f-HPQzFMu7DivRZJz9y0Zx2DMjlh3trN66MWAhU1g';
 // ─────────────────────────────────────────────────────────
 
 // ── HELPER FUNCTIONS ─────────────────────
@@ -133,8 +133,8 @@ async function manualRefresh() {
   if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
 }
 
-// ── DEMO MODE — DISABLED in production (Dhan Raksha) ────────
-// Demo login Dhan Raksha demo app ke liye tha. Production me real
+// ── DEMO MODE — DISABLED in production (Sankat Mochan) ────────
+// Demo login Sankat Mochan demo app ke liye tha. Production me real
 // Supabase auth use hota hai. Yeh stubs accidental/console call rok dete hain.
 async function initDemoApp() { showAuth(); }
 function showDemoLogin() { showAuth(); }
@@ -740,7 +740,7 @@ function sendOTPviaSMS() {
   const indiaPhone = cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone;
 
   // SMS message
-  const msg = 'Dhan Raksha Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
+  const msg = 'Sankat Mochan Finance OTP: ' + generatedOTP + ' (10 min valid). किसी को share न करें।';
 
   // Open SMS app directly
   window.open('sms:+' + indiaPhone + '?body=' + encodeURIComponent(msg), '_blank');
@@ -773,7 +773,7 @@ function sendClientOTP() {
     `🙏 नमस्ते ${name} जी!
 
 ` +
-    `धन रक्षा Finance में आपका OTP है:
+    `संकट मोचन Finance में आपका OTP है:
 
 ` +
     `*${generatedOTP}*
@@ -784,7 +784,7 @@ function sendClientOTP() {
     `किसी को share न करें।
 
 ` +
-    `धन रक्षा Finance 🚩`
+    `संकट मोचन Finance 🚩`
   );
 
   const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -1810,6 +1810,16 @@ function openRenewModal(clientId) {
   const nextCycle = cycleMap[cl.loan_cycle] || (parseInt(cl.loan_cycle)||1) + 1 + 'th';
   const today = new Date().toISOString().slice(0,10);
 
+  // Purane loan ka bakaya (current loan ke payments minus)
+  const oldTotal = (parseFloat(cl.balance)||0) + (parseFloat(cl.interest_amount)||0);
+  const oldPaid  = currentLoanPayments(cl).reduce((s,p) => s + (parseFloat(p.amount)||0), 0);
+  const oldDue   = Math.max(0, Math.round(oldTotal - oldPaid));
+
+  // LPF/LPC — LPF fixed 500, LPC har 10,000 par 500
+  const newLoanGuess = parseFloat(cl.balance) || 0;
+  const defLpf = 500;
+  const defLpc = Math.ceil(newLoanGuess / 10000) * 500;
+
   const modal = document.createElement('div');
   modal.id = 'renew-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
@@ -1830,7 +1840,7 @@ function openRenewModal(clientId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
           <label style="font-size:11px;font-weight:700;color:var(--muted)">Loan Amount ₹</label>
-          <input id="rn-balance" type="number" placeholder="0" value="${cl.balance||''}" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+          <input id="rn-balance" type="number" placeholder="0" value="${cl.balance||''}" oninput="calcRenewNet()" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
         </div>
         <div>
           <label style="font-size:11px;font-weight:700;color:var(--muted)">Interest ₹</label>
@@ -1863,11 +1873,60 @@ function openRenewModal(clientId) {
         </div>
       </div>
 
+      <!-- ── Kataauti / Deductions ────────────────────────── -->
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:800;color:var(--navy);margin-bottom:8px">➖ कटौती / Deductions</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="grid-column:1 / -1">
+            <label style="font-size:11px;font-weight:700;color:var(--muted)">पिछला बकाया / Last Loan Due ₹</label>
+            <input id="rn-old-due" type="number" value="${oldDue}" oninput="calcRenewNet()" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--muted)">LPF ₹</label>
+            <input id="rn-lpf" type="number" value="${defLpf}" oninput="calcRenewNet()" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:700;color:var(--muted)">LPC ₹</label>
+            <input id="rn-lpc" type="number" value="${defLpc}" oninput="calcRenewNet()" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:13px;margin-top:3px">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Net cash summary ────────────────────────── -->
+      <div id="rn-net-box" style="background:linear-gradient(135deg,#0f2547,#1a3a6b);color:white;border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85"><span>नया लोन / Loan</span><span id="rn-s-loan">₹0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;margin-top:3px"><span>− पिछला बकाया</span><span id="rn-s-due">₹0</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;margin-top:3px"><span>− LPF + LPC</span><span id="rn-s-fees">₹0</span></div>
+        <div style="border-top:1px solid rgba(255,255,255,.25);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;font-weight:700">ग्राहक को देना / Net Cash</span>
+          <span id="rn-s-net" style="font-size:20px;font-weight:800;color:#fbbf24">₹0</span>
+        </div>
+      </div>
+
       <button onclick="submitRenewal('${clientId}')" style="width:100%;padding:13px;background:linear-gradient(135deg,#e65c00,#f9d423);color:white;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer">
         🔄 Renew Loan / लोन नवीनीकरण करें
       </button>
     </div>`;
   document.body.appendChild(modal);
+  calcRenewNet();
+}
+
+// Renewal ka net cash calculate karo (live)
+function calcRenewNet() {
+  const g = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const loan = g('rn-balance');
+  const due  = g('rn-old-due');
+  const fees = g('rn-lpf') + g('rn-lpc');
+  const net  = loan - due - fees;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = '₹' + fmt(val); };
+  set('rn-s-loan', loan);
+  set('rn-s-due', due);
+  set('rn-s-fees', fees);
+  const netEl = document.getElementById('rn-s-net');
+  if (netEl) {
+    netEl.textContent = '₹' + fmt(net);
+    netEl.style.color = net < 0 ? '#fca5a5' : '#fbbf24';
+  }
 }
 
 async function submitRenewal(clientId) {
@@ -1918,6 +1977,8 @@ async function submitRenewal(clientId) {
       loan_date: loanDate,
       first_emi_date: emiDate,
       emi_amount: weeklyEMI,
+      lpf: parseFloat(document.getElementById('rn-lpf')?.value) || 0,
+      lpc: parseFloat(document.getElementById('rn-lpc')?.value) || 0,
       kyc_status: 'approved'
     }).eq('id', clientId);
 
@@ -2145,7 +2206,7 @@ function buildMonthlyReportHTML(month) {
 
   return `
   <div style="background:white;border-radius:12px;padding:12px;margin-bottom:12px;text-align:center;box-shadow:0 2px 8px rgba(15,37,71,.08)">
-    <div style="font-size:16px;font-weight:800;color:var(--navy)">धन रक्षा Finance — Monthly Report</div>
+    <div style="font-size:16px;font-weight:800;color:var(--navy)">संकट मोचन Finance — Monthly Report</div>
     <div style="font-size:12px;color:var(--muted)">${monthLabel}</div>
   </div>
 
@@ -2211,7 +2272,7 @@ function renderCashBookTab() {
     <!-- Header -->
     <div id="cashbook-print-area" style="background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(15,37,71,.08)">
       <div style="text-align:center;font-size:16px;font-weight:800;color:var(--navy);border-bottom:2px solid var(--navy);padding-bottom:6px;margin-bottom:10px">
-        धन रक्षा Finance — Cash Book / नकद बही
+        संकट मोचन Finance — Cash Book / नकद बही
       </div>
       <div style="display:flex;gap:10px;margin-bottom:10px;font-size:12px">
         <div style="flex:1">
@@ -2478,7 +2539,7 @@ function printLoanCard(clientId) {
 
 <!-- Header -->
 <div class="header">
-  <div class="company-name">धन रक्षा Finance</div>
+  <div class="company-name">संकट मोचन Finance</div>
   <div class="company-sub">शाखा कार्यालय: बलिया, उत्तर प्रदेश</div>
 </div>
 
@@ -2537,7 +2598,7 @@ function printLoanCard(clientId) {
 
 <!-- Helpline -->
 <div class="footer-text">
-  किसी भी शिकायत के लिए संपर्क करें | For any complaint please contact: <strong>धन रक्षा Finance, बलिया</strong>
+  किसी भी शिकायत के लिए संपर्क करें | For any complaint please contact: <strong>संकट मोचन Finance, बलिया</strong>
 </div>
 
 <!-- Signatures -->
@@ -3117,7 +3178,7 @@ function printCashBook() {
   <style>body{font-family:Arial,sans-serif;margin:10mm}table{width:100%;border-collapse:collapse}
   th,td{border:1px solid #999;padding:6px;font-size:12px}th{background:#1a2e4a;color:white}
   @media print{@page{margin:10mm}}</style></head><body>
-  <h2 style="text-align:center;margin-bottom:4px">धन रक्षा Finance — Cash Book</h2>
+  <h2 style="text-align:center;margin-bottom:4px">संकट मोचन Finance — Cash Book</h2>
   <p style="text-align:center;font-size:12px;margin-top:0">Day: <b>${day}</b> &nbsp; Date: <b>${date}</b></p>
   ${getPrintableHTML('cashbook-print-area')}</body></html>`;
   const w = window.open('','_blank');
@@ -3403,7 +3464,7 @@ function renderMeetingTab() {
     
     // Company Header
     html += '<div style="text-align:center;padding:10px;border-bottom:2px solid #000">';
-    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">धन रक्षा Finance</div>';
+    html += '<div style="font-size:16px;font-weight:700;text-transform:uppercase">संकट मोचन Finance</div>';
     html += '<div style="font-size:11px;color:#666">शाखा कार्यालय: बलिया</div>';
     html += '</div>';
 
@@ -3910,7 +3971,7 @@ async function downloadClientPDF(clientId) {
       @media print{button{display:none}}
     </style></head>
     <body>
-      <h1>🚩 Dhan Raksha Finance — Client Report</h1>
+      <h1>🚩 Sankat Mochan Finance — Client Report</h1>
       <div style="font-size:12px;color:#64748b;margin-bottom:16px">Generated: ${new Date().toLocaleString('hi-IN')}</div>
 
       <div class="section">
@@ -3996,7 +4057,7 @@ function sendWhatsAppReminder(clientId) {
     `• कुल भुगतान: ₹${fmt(totalPaid)}\n` +
     `• बकाया राशि: ₹${fmt(pending)}\n\n` +
     `कृपया समय पर भुगतान करें। धन्यवाद! 🙏\n\n` +
-    `Dhan Raksha Finance`
+    `Sankat Mochan Finance`
   );
 
   const phone = c.phone.replace(/[^0-9]/g, '');
@@ -4007,7 +4068,7 @@ function sendWhatsAppReminder(clientId) {
 function sendBirthdayWish(clientId) {
   const c = allClients.find(x => x.id === clientId);
   if (!c || !c.phone) { showToast('No phone number', 'error'); return; }
-  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nDhan Raksha Finance 🙏`);
+  const message = encodeURIComponent(`🎂 जन्मदिन मुबारक हो ${c.name} जी! 🎉\nआपको और आपके परिवार को ढेर सारी शुभकामनाएं!\n\nSankat Mochan Finance 🙏`);
   const phone = c.phone.replace(/[^0-9]/g, '');
   window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
 }
@@ -4714,7 +4775,7 @@ function printMeetingSheet() {
     pagesHtml += `
     <div class="page">
       <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
-        <div style="font-size:16px;font-weight:bold">धन रक्षा FINANCE</div>
+        <div style="font-size:16px;font-weight:bold">संकट मोचन FINANCE</div>
         <div style="font-size:10px">शाखा कार्यालय: बलिया</div>
       </div>
       <table class="info-table">
@@ -4813,7 +4874,7 @@ function printMeetingSheet() {
 <html>
 <head>
 <meta charset="UTF-8"/>
-<title>CDS - Dhan Raksha Finance</title>
+<title>CDS - Sankat Mochan Finance</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, sans-serif; font-size: 9px; color: #000; }
@@ -4927,7 +4988,7 @@ function showMeetingDay() {
 
             <!-- Company Header -->
             <div style="text-align:center;border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:10px">
-              <div style="font-size:15px;font-weight:700;color:var(--navy)">धन रक्षा Finance</div>
+              <div style="font-size:15px;font-weight:700;color:var(--navy)">संकट मोचन Finance</div>
               <div style="font-size:11px;color:var(--muted)">Center Day Sheet (CDS)</div>
             </div>
 
